@@ -1,0 +1,3 @@
+# Optional yt-dlp browser-export cookies.
+# Keep this file empty unless the media source requires authentication.
+# Never commit real cookies.txt to source control or share it.
