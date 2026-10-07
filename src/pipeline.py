@@ -20,7 +20,7 @@ from .hook import prompt_or_existing
 from .hook import fmt_ms
 from .utils import parse_timecode
 from .json_record import build as build_json, write as write_json
-from .lrclib import LRCLIBClient, LyricsResult
+from .lrclib import LRCLIBClient, LyricsResult, contains_telugu_script
 from .metadata import NormalizedMetadata
 from .mp3_metadata import embed
 from .reel import build_reel
@@ -29,6 +29,7 @@ from .utils import atomic_write_json, duration_ms, safe_name
 from .youtube_sync import find_offset
 from .youtube_video import download_audio, select_video
 from .demucs import DemucsRunner
+from .gpu import cuda_available
 from .alignment import run_alignment
 
 
@@ -314,6 +315,43 @@ class Pipeline:
         if changed:
             self._save_hook_queue(data)
 
+    def _hook_queue_sources_exist(self, queued):
+        """Return whether a persisted hook-queue entry still has its local source package.
+
+        hook_queue.json is intentionally trackable while songs/final artifacts are generated
+        and ignored. A fresh checkout can therefore contain a valid historical queue entry
+        whose generated source files are not present locally. Such an entry must not crash the
+        pipeline; it is stale and the normal expensive pipeline should rebuild the package.
+        """
+        required = (
+            queued.get("song_path"),
+            queued.get("lrc_path"),
+            queued.get("wordlevel_lrc_path"),
+            queued.get("eightd_path"),
+            queued.get("json_path"),
+        )
+        for rel in required:
+            if not rel:
+                return False
+            p = Path(str(rel))
+            if not p.is_absolute():
+                p = self.cfg.root / p
+            if not p.exists() or p.stat().st_size == 0:
+                return False
+        return True
+
+    def _mark_hook_queue_stale(self, song_key, reason):
+        data = self._load_hook_queue()
+        changed = False
+        for item in data["entries"]:
+            if str(item.get("song_key")) == str(song_key) and item.get("status") != "completed":
+                item["status"] = "stale"
+                item["stale_reason"] = str(reason)
+                item["stale_at"] = time.time()
+                changed = True
+        if changed:
+            self._save_hook_queue(data)
+
     def _finalize_from_hook_queue(self, entry, queued):
         """Build only the Reel from a persisted pre-hook package; never reacquire media."""
         key = str(queued["song_key"])
@@ -438,10 +476,22 @@ class Pipeline:
         work_base.mkdir(parents=True, exist_ok=True)
         queued = self._hook_queue_entry(key)
         if queued:
-            result = self._finalize_from_hook_queue(entry, queued)
-            if result == "hook_pending":
-                self.logger.info("Song serial=%s is waiting for hook times in %s", serial, self._hook_queue_path())
-            return result
+            # hook_queue.json is intentionally tracked, while songs/final artifacts are
+            # generated and ignored. On a fresh checkout or after cleanup, the queue can
+            # legitimately outlive its generated source package. Treat that entry as stale
+            # and rebuild the normal pipeline instead of crashing with HOOK_QUEUE_SOURCE_MISSING.
+            if not self._hook_queue_sources_exist(queued):
+                self.logger.info(
+                    "Song serial=%s has a stale hook queue entry because its generated source package is missing; rebuilding.",
+                    serial,
+                )
+                self._mark_hook_queue_stale(key, "SOURCE_PACKAGE_MISSING")
+                queued = None
+            else:
+                result = self._finalize_from_hook_queue(entry, queued)
+                if result == "hook_pending":
+                    self.logger.info("Song serial=%s is waiting for hook times in %s", serial, self._hook_queue_path())
+                return result
         state_path = work_base / "state.json"
         state = {}
         if state_path.exists():
@@ -619,7 +669,9 @@ class Pipeline:
                 "duration_ms": int(acq["duration_ms"]),
                 "provider": "lrclib",
                 "endpoint": "https://lrclib.net/api/get + /api/search fallback",
-                "lyrics_strategy_version": "lrclib-get-then-search-v2",
+                "lyrics_strategy_version": "lrclib-get-then-search-v2-telugu-script-gate-v1",
+                "required_script": "Telugu",
+                "telugu_script_gate": "at_least_one_U+0C00_U+0C7F_codepoint_in_complete_lrc",
             })
             lrc = work / "lyrics" / "source.lrc"
             lrc.parent.mkdir(parents=True, exist_ok=True)
@@ -650,6 +702,41 @@ class Pipeline:
                 lrc.write_text(lres.synced_lyrics, encoding="utf-8")
                 self._finish(active_stage_id, "completed", lrc, sha256_file(lrc))
                 active_stage_id = None
+            # -------- Telugu-script LRC gate --------
+            # LRCLIB's "synced" flag does not mean the lyrics are written in
+            # Telugu script. Romanized/Latin-only lyrics can otherwise reach the
+            # Telugu MMS/CTC aligner and fail later with misleading timing errors.
+            # Apply this gate after selection (including cached selections) and
+            # before any alignment, visual search, or downstream processing.
+            selected_lrc_text = lrc.read_text(encoding="utf-8")
+            if not contains_telugu_script(selected_lrc_text):
+                reason = "SKIPPED_NO_TELUGU_SCRIPT_LRC"
+                self.logger.warning(
+                    "Skipping serial=%s | title=%s | selected LRC contains no Telugu-script characters",
+                    serial, md.title,
+                )
+                self._finish(active_stage_id, "completed", lrc, sha256_file(lrc)) if active_stage_id is not None else None
+                active_stage_id = None
+                self.songs_db.upsert_lyric_source(key, {
+                    "provider": "lrclib", "synced": 1, "raw_lrc_path": str(lrc),
+                    "raw_lrc_sha256": sha256_file(lrc),
+                    "line_count": sum(1 for x in selected_lrc_text.splitlines() if x.strip()),
+                    "blank_marker_count": sum(1 for x in selected_lrc_text.splitlines() if re.search(r"^\[\s*\]\s*$", x)),
+                    "status": "skipped", "reason": reason, "script_required": "Telugu",
+                })
+                self.songs_db.update_song(
+                    key, pipeline_status=reason, quality_status="skipped", terminal=1, terminal_reason=reason
+                )
+                artwork = None
+                art_path = spotify_state.get("artwork_path")
+                if art_path:
+                    artwork = {"path": art_path, "mime": "image/jpeg" if str(art_path).lower().endswith(".jpg") else "image/png"}
+                self._record_skip_no_lrc(
+                    key, entry, md, acq, source_info, spotify_result, {"artwork": artwork}, name,
+                    "Selected synchronized LRC contains no Telugu-script characters (U+0C00-U+0C7F)"
+                )
+                return "skipped"
+
             self.songs_db.upsert_lyric_source(key, {
                 "provider": "lrclib", "synced": 1, "raw_lrc_path": str(lrc), "raw_lrc_sha256": sha256_file(lrc),
                 "line_count": sum(1 for x in lres.synced_lyrics.splitlines() if x.strip()),
@@ -743,6 +830,9 @@ class Pipeline:
                 "source_mp3_sha256": src_hash,
                 "full_source_wav_sha256": full_audio_meta["sha256"],
                 "model": self.cfg.get("models.demucs_model", self.cfg.get("demucs.model", "htdemucs")),
+                "requested_device": self.cfg.get("runtime.device", "cuda"),
+                "cuda_available": cuda_available(),
+                "segment_seconds": self.cfg.get("demucs.segment_seconds", 8),
             })
             dem_stage = self._stage(key, "demucs", dem_fp)
             dem = DemucsRunner(self.cfg.data, work, self.logger, model_cache_dir=self.cfg.path("paths.models_dir")).run(full_source)
@@ -764,6 +854,8 @@ class Pipeline:
                 "full_source_wav_sha256": full_audio_meta["sha256"],
                 "mms_model": self.cfg.get("models.mms_model", "facebook/mms-1b-all"),
                 "mms_revision": self.cfg.get("models.mms_revision"),
+                "runtime_device": self.cfg.get("runtime.device", "cuda"),
+                "cuda_available": cuda_available(),
                 "config_hash": self.cfg.config_hash,
             })
             aligned_json = work / "alignment" / "final" / "master.json"

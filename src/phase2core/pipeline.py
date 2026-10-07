@@ -664,11 +664,31 @@ class Pipeline:
                     speech_pad_ms=int(self.config.get("vad.speech_pad_ms", 150)),
                     use_vad=bool(self.config.get("vad.enabled", True)),
                     energy_threshold_db=float(self.config.get("vad.energy_threshold_db", -38.0)),
+                    device=str(self.config.get("runtime.device", "cuda")),
+                    fallback_device=str(self.config.get("runtime.fallback_device", "cpu")),
+                    allow_cpu_fallback=bool(self.config.get("runtime.allow_cpu_fallback", True)),
                 )
                 activity = detector.detect(vocals_16k)
                 json_dump_file(activity_json, activity)
             else:
                 activity = json.loads(activity_json.read_text(encoding="utf-8"))
+                # A previous run may have fallen back to CPU. Recompute VAD when
+                # the preferred device is now different/available.
+                requested_activity_device = str(self.config.get("runtime.device", "cuda"))
+                if activity.get("device") != requested_activity_device:
+                    detector = ActivityDetector(
+                        threshold=float(self.config.get("vad.threshold", 0.5)),
+                        min_speech_duration_ms=int(self.config.get("vad.min_speech_duration_ms", 250)),
+                        min_silence_duration_ms=int(self.config.get("vad.min_silence_duration_ms", 300)),
+                        speech_pad_ms=int(self.config.get("vad.speech_pad_ms", 150)),
+                        use_vad=bool(self.config.get("vad.enabled", True)),
+                        energy_threshold_db=float(self.config.get("vad.energy_threshold_db", -38.0)),
+                        device=requested_activity_device,
+                        fallback_device=str(self.config.get("runtime.fallback_device", "cpu")),
+                        allow_cpu_fallback=bool(self.config.get("runtime.allow_cpu_fallback", True)),
+                    )
+                    activity = detector.detect(vocals_16k)
+                    json_dump_file(activity_json, activity)
 
             chunks_rows = self.db.get_chunks(song_id)
             if current_status in {"pending", "scanning", "lyrics_loaded", "isolating", "isolated"} or not chunks_rows:
@@ -933,6 +953,8 @@ class Pipeline:
                 "language_iso1": self.config.get("models.language_iso1", "te"),
                 "language_iso3": self.config.get("models.language_iso3", "tel"),
                 "method": "MMS frame emissions + CTC reference forced alignment",
+                "requested_device": self.config.get("runtime.device", "cuda"),
+                "actual_device": self.model.device,
             }
             input_meta = {
                 "mp3_filename": package.mp3_path.name,

@@ -7,18 +7,24 @@ import numpy as np
 from .audio import AudioManager
 from .types import ActivityResult
 from .utils import merge_intervals
+from ..gpu import resolve_device
 
 
 class ActivityDetector:
     def __init__(self, threshold: float = 0.5, min_speech_duration_ms: int = 250,
                  min_silence_duration_ms: int = 300, speech_pad_ms: int = 150,
-                 use_vad: bool = True, energy_threshold_db: float = -38.0):
+                 use_vad: bool = True, energy_threshold_db: float = -38.0,
+                 device: str = "cuda", fallback_device: str = "cpu",
+                 allow_cpu_fallback: bool = True):
         self.threshold = threshold
         self.min_speech_duration_ms = min_speech_duration_ms
         self.min_silence_duration_ms = min_silence_duration_ms
         self.speech_pad_ms = speech_pad_ms
         self.use_vad = use_vad
         self.energy_threshold_db = energy_threshold_db
+        self.device = resolve_device(device, fallback_device, allow_cpu_fallback=allow_cpu_fallback)
+        self.fallback_device = str(fallback_device or "cpu")
+        self.allow_cpu_fallback = bool(allow_cpu_fallback)
         self._model = None
 
     def _load_model(self):
@@ -28,6 +34,13 @@ class ActivityDetector:
             except ImportError as exc:
                 raise RuntimeError("VAD_LOAD_FAILED: install silero-vad") from exc
             self._model = load_silero_vad()
+            if self.device.startswith("cuda"):
+                try:
+                    self._model = self._model.to(self.device)
+                except Exception as exc:
+                    if not self.allow_cpu_fallback:
+                        raise RuntimeError(f"VAD_CUDA_LOAD_FAILED: {exc}") from exc
+                    self.device = self.fallback_device
         return self._model
 
     def _energy_intervals(self, audio: np.ndarray, sr: int, frame_ms: int = 50) -> list[tuple[int, int]]:
@@ -59,18 +72,33 @@ class ActivityDetector:
         if self.use_vad:
             import torch
             model = self._load_model()
-            tensor = torch.from_numpy(audio.astype(np.float32, copy=False))
-            with torch.no_grad():
-                ts = get_speech_timestamps_compat(
-                    tensor, model, sr, self.threshold,
-                    self.min_speech_duration_ms, self.min_silence_duration_ms,
-                    self.speech_pad_ms,
-                )
+            tensor = torch.from_numpy(audio.astype(np.float32, copy=False)).to(self.device)
+            try:
+                with torch.no_grad():
+                    ts = get_speech_timestamps_compat(
+                        tensor, model, sr, self.threshold,
+                        self.min_speech_duration_ms, self.min_silence_duration_ms,
+                        self.speech_pad_ms,
+                    )
+            except Exception as exc:
+                if not self.device.startswith("cuda") or not self.allow_cpu_fallback:
+                    raise RuntimeError(f"VAD_INFERENCE_FAILED: {exc}") from exc
+                self.device = self.fallback_device
+                try:
+                    model = model.to(self.device)
+                    tensor = tensor.to(self.device)
+                    with torch.no_grad():
+                        ts = get_speech_timestamps_compat(
+                            tensor, model, sr, self.threshold,
+                            self.min_speech_duration_ms, self.min_silence_duration_ms,
+                            self.speech_pad_ms,
+                        )
+                except Exception as second_exc:
+                    raise RuntimeError(f"VAD_INFERENCE_FAILED: CUDA and fallback failed: {second_exc}") from second_exc
             duration_sec = len(audio) / sr
             for item in ts:
                 start = float(item["start"])
                 end = float(item["end"])
-                # Current API with return_seconds=True returns seconds; older API may return samples.
                 if end > duration_sec * 2:
                     start_ms = int(round(start / sr * 1000))
                     end_ms = int(round(end / sr * 1000))
@@ -80,7 +108,7 @@ class ActivityDetector:
                 if end_ms > start_ms:
                     speech.append((start_ms, end_ms))
             speech = merge_intervals(speech, max_gap_ms=self.min_silence_duration_ms)
-        return {"speech": speech, "energy": energy}
+        return {"speech": speech, "energy": energy, "device": self.device}
 
 
 def get_speech_timestamps_compat(tensor, model, sr: int, threshold: float,

@@ -95,3 +95,26 @@ def test_reference_download_requires_exact_selected_url():
     import pytest
     with pytest.raises(RuntimeError, match='YOUTUBE_SELECTED_URL_REQUIRED'):
         youtube_video.download_audio({}, 'abc123', Path('/tmp/vachika-test-no-url'))
+
+
+def test_telugu_script_gate_accepts_telugu_and_rejects_romaji():
+    from src.lrclib import contains_telugu_script
+    assert contains_telugu_script("[00:01.00]నా మనసునే\n")
+    assert not contains_telugu_script("[00:01.00]Naa Manasuney\n")
+    assert not contains_telugu_script("[00:01.00]123 !?\n")
+
+
+def test_telugu_script_gate_is_before_visual_stage():
+    from pathlib import Path
+    text = Path('src/pipeline.py').read_text(encoding='utf-8')
+    gate = text.index('contains_telugu_script(selected_lrc_text)')
+    visual = text.index('# -------- Resolve YouTube visual source ONCE + global 30 s offset --------')
+    assert gate < visual
+    assert 'SKIPPED_NO_TELUGU_SCRIPT_LRC' in text
+
+
+def test_lyrics_fingerprint_includes_telugu_script_gate_version():
+    from pathlib import Path
+    text = Path('src/pipeline.py').read_text(encoding='utf-8')
+    assert 'lrclib-get-then-search-v2-telugu-script-gate-v1' in text
+    assert 'at_least_one_U+0C00_U+0C7F_codepoint_in_complete_lrc' in text

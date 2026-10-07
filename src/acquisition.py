@@ -61,12 +61,9 @@ def _make_ytm_client(cfg):
     cached = getattr(cfg, "_ytm_client", None)
     if cached is not None:
         return cached
-    auth = cfg.path("ytmusic.auth_file") if cfg.get("ytmusic.auth_file") else None
-    if not auth or not Path(auth).exists():
-        raise AcquisitionError(
-            "YTM_AUTH_REQUIRED: configure ytmusic.auth_file (for example browser.json) "
-            "before YT Music search/media acquisition."
-        )
+    # YT Music catalog search is intentionally unauthenticated. Authentication
+    # is not used to improve search ranking and must not be a pipeline prerequisite.
+    auth = None
     ytdlp_cfg = dict(cfg.get("ytmusic.yt_dlp", {}) or {})
     cookie_file = ytdlp_cfg.get("cookie_file")
     if cookie_file:
@@ -86,8 +83,86 @@ def _make_ytm_client(cfg):
     return client
 
 
+def _norm_text(value: Any) -> str:
+    import re
+    import unicodedata
+    text = unicodedata.normalize("NFKC", str(value or "")).casefold()
+    return "".join(ch for ch in text if ch.isalnum() or ch.isspace()).strip()
+
+
+def _tokens(value: Any) -> set[str]:
+    return {x for x in _norm_text(value).split() if x}
+
+
+def _candidate_names(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        name = value.get("name") or value.get("title")
+        return [str(name).strip()] if name else []
+    if isinstance(value, (list, tuple)):
+        out: list[str] = []
+        for item in value:
+            out.extend(_candidate_names(item))
+        return out
+    return [str(value).strip()] if value else []
+
+
+def _text_similarity(expected: str, candidates: list[str]) -> tuple[float, str]:
+    expected_n = _norm_text(expected)
+    if not expected_n:
+        return 0.0, "none"
+    expected_tokens = _tokens(expected_n)
+    best = 0.0
+    kind = "none"
+    for raw in candidates:
+        actual_n = _norm_text(raw)
+        if not actual_n:
+            continue
+        actual_tokens = _tokens(actual_n)
+        if actual_n == expected_n:
+            score, label = 1.0, "exact"
+        elif expected_n in actual_n or actual_n in expected_n:
+            score, label = 0.85, "contains"
+        elif expected_tokens and actual_tokens:
+            overlap = len(expected_tokens & actual_tokens) / len(expected_tokens | actual_tokens)
+            score, label = overlap, "token_overlap"
+        else:
+            score, label = 0.0, "none"
+        if score > best:
+            best, kind = score, label
+    return best, kind
+
+
+def _score_ytmusic_candidate(candidate: dict[str, Any], spotify_result: SpotifyResult, tolerance: int) -> tuple[float, dict[str, Any]]:
+    title_score, title_kind = _text_similarity(spotify_result.track_name, _candidate_names(candidate.get("title")))
+    artist_expected = getattr(spotify_result, "artist_string", ", ".join(getattr(spotify_result, "artists", []) or []))
+    artist_score, artist_kind = _text_similarity(artist_expected, _candidate_names(candidate.get("artists")))
+    album_expected = spotify_result.album_name or ""
+    album_score, album_kind = _text_similarity(album_expected, _candidate_names(candidate.get("album"))) if album_expected else (0.0, "not_requested")
+    duration_score = max(0.0, 1.0 - (candidate["delta_ms"] / max(1, tolerance)))
+
+    # Identity is more important than search-result position or tiny duration differences.
+    # Title + artist establish the recording; album and duration break legitimate ties.
+    score = (
+        45.0 * title_score
+        + 35.0 * artist_score
+        + 10.0 * album_score
+        + 10.0 * duration_score
+    )
+    breakdown = {
+        "title_score": round(title_score, 6),
+        "title_match": title_kind,
+        "artist_score": round(artist_score, 6),
+        "artist_match": artist_kind,
+        "album_score": round(album_score, 6),
+        "album_match": album_kind,
+        "duration_score": round(duration_score, 6),
+        "total_score": round(score, 6),
+    }
+    return score, breakdown
+
+
 def search_ytmusic_audio(cfg, spotify_result: SpotifyResult) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
-    """Search YT Music with Spotify title + album and select the first duration-matching result."""
+    """Search unauthenticated YT Music and select the strongest Spotify-matching song candidate."""
     query = f"{spotify_result.track_name} {spotify_result.album_name}".strip() if spotify_result.album_name else spotify_result.track_name.strip()
     limit = max(1, min(50, int(cfg.get("ytmusic.search_limit", 10))))
     tolerance = int(cfg.get("ytmusic.duration_tolerance_ms", 2000))
@@ -116,18 +191,18 @@ def search_ytmusic_audio(cfg, spotify_result: SpotifyResult) -> tuple[str, dict[
             "delta_ms": delta_ms,
             "raw": dict(item),
         }
+        score, breakdown = _score_ytmusic_candidate(candidate, spotify_result, tolerance)
+        candidate["match_score"] = score
+        candidate["match_breakdown"] = breakdown
         candidates.append(candidate)
 
-    # Never take the first search result merely because it is first. Search the
-    # complete result window, then choose the closest known duration. This is the
-    # explicit Spotify-duration gate requested by the pipeline contract.
     matches = [c for c in candidates if c["delta_ms"] <= tolerance]
     if not matches:
         raise AcquisitionError(
             f'YTM_AUDIO_MATCH_NOT_FOUND: no YT Music song result for "{query}" matched '
             f"Spotify duration {spotify_result.duration_ms}±{tolerance} ms"
         )
-    selected = min(matches, key=lambda c: (c["delta_ms"], c["index"]))
+    selected = max(matches, key=lambda c: (c["match_score"], -c["delta_ms"], -c["index"]))
     return query, selected, candidates
 
 
@@ -155,7 +230,7 @@ def acquire(cfg, work: Path, spotify_result: SpotifyResult):
     info = json.loads(info_json.read_text(encoding="utf-8"))
     info["ytmusic_search"] = {
         "query": query,
-        "selection_rule": "closest_duration_within_spotify_tolerance",
+        "selection_rule": "strongest_title_artist_album_duration_match_within_spotify_tolerance",
         "selected_result_index": candidate["index"],
         "selected_candidate": {k: v for k, v in candidate.items() if k != "raw"},
         "candidates_considered": [{k: v for k, v in x.items() if k != "raw"} for x in candidates],

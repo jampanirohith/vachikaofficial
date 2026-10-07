@@ -135,3 +135,32 @@ def test_ytmusic_search_selects_closest_duration_not_first_match(monkeypatch):
     _, selected, candidates = search_ytmusic_audio(cfg,sr)
     assert selected['video_id']=='C'
     assert len(candidates)==3
+    assert selected['match_score'] >= max(c['match_score'] for c in candidates if c['video_id'] != 'C')
+
+
+def test_ytmusic_search_uses_unauthenticated_client_contract(monkeypatch):
+    from src import acquisition
+    calls = {}
+    class FakeClient:
+        def __init__(self, auth_file=None, **kwargs): calls["auth"] = auth_file; self.api = type("API", (), {"search": lambda self, *a, **k: []})()
+    monkeypatch.setattr(acquisition, "YTMusicMediaClient", FakeClient)
+    cfg = SimpleNamespace(root=Path("."), _ytm_client=None, get=lambda k,d=None: d, path=lambda k: Path("browser.json"))
+    try: acquisition._make_ytm_client(cfg)
+    except Exception: pass
+    assert calls["auth"] is None
+
+
+def test_ytmusic_scoring_prefers_correct_artist_over_tiny_duration_difference(monkeypatch):
+    from src.acquisition import search_ytmusic_audio
+    class API:
+        def search(self,*args,**kwargs):
+            return [
+                {"videoId":"wrong","title":"Song","artists":[{"name":"Wrong Artist"}],"album":{"name":"Album"},"duration_seconds":180.0},
+                {"videoId":"right","title":"Song","artists":[{"name":"Right Artist"}],"album":{"name":"Album"},"duration_seconds":180.8},
+            ]
+    class Client: api=API()
+    monkeypatch.setattr("src.acquisition._make_ytm_client",lambda cfg: Client())
+    sr=SimpleNamespace(track_name="Song",artists=["Right Artist"],album_name="Album",duration_ms=180000,track_id="S1")
+    cfg=SimpleNamespace(get=lambda k,d=None: 10 if k=='ytmusic.search_limit' else (1000 if k=='ytmusic.duration_tolerance_ms' else 60))
+    _, selected, _ = search_ytmusic_audio(cfg,sr)
+    assert selected["video_id"] == "right"

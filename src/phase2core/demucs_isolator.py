@@ -6,13 +6,14 @@ from pathlib import Path
 
 from .utils import run_command
 from ..model_cache import configure_model_cache
+from ..gpu import resolve_device
 
 
 class DemucsIsolator:
     def __init__(self, model_name: str, device: str, fallback_device: str, segment: int | None = None,
                  require_cuda: bool = False, allow_cpu_fallback: bool = True, retry_segment: int | float | None = 8, model_cache_dir: str | Path | None = None):
         self.model_name = model_name
-        self.device = device
+        self.device = resolve_device(device, fallback_device, allow_cpu_fallback=allow_cpu_fallback)
         self.fallback_device = fallback_device
         self.segment = int(segment) if segment is not None else None
         self.require_cuda = bool(require_cuda)
@@ -65,13 +66,10 @@ class DemucsIsolator:
         return candidates[-1]
 
     def isolate(self, source: Path, destination: Path) -> dict[str, object]:
-        if self.device == "cuda" and not self._cuda_available():
-            if self.allow_cpu_fallback:
-                self.device = self.fallback_device
-            elif self.require_cuda:
-                raise RuntimeError(
-                    "CUDA_REQUIRED: Demucs requested CUDA, but PyTorch reports CUDA unavailable."
-                )
+        # Device was resolved during construction; CUDA is preferred whenever
+        # PyTorch exposes it, with the configured fallback only when necessary.
+        if self.require_cuda and str(device).startswith("cuda") and self.device != str(device):
+            raise RuntimeError("CUDA_REQUIRED: Demucs requested CUDA but the configured CUDA runtime is unavailable.")
 
         output_root = destination.parent / "demucs_out"
         attempts: list[dict[str, object]] = []

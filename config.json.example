@@ -1,9 +1,9 @@
 {
   "project": {
     "name": "Unified Spotify Playlist -> YT Music -> Telugu Word LRC -> Whole-song 8D -> Reel",
-    "version": "1.4.24-final",
+    "version": "1.4.28-gpu-hardening",
     "plan": "PROJECT_PLAN.md",
-    "pipeline_version": "1.4.24-cuda-primary-cpu-fallback-direct-selected-youtube-video-no-ytmusicapi-hook-queue-resume"
+    "pipeline_version": "1.4.28-cuda-first-demucs-mms-silero-nvenc-device-aware-cache"
   },
   "playlist": {
     "provider": "spotify",
@@ -35,8 +35,6 @@
     "require_user_auth": true
   },
   "ytmusic": {
-    "auth_file": "browser.json",
-    "require_auth": true,
     "search_limit": 10,
     "duration_tolerance_ms": 2000,
     "timeout_seconds": 60,
@@ -106,7 +104,9 @@
     "fallback_device": "cpu",
     "require_cuda": true,
     "allow_cpu_fallback": false,
-    "print_device_banner": true
+    "print_device_banner": true,
+    "gpu_policy": "cuda_first_for_torch_models_and_nvenc;cpu_for_io_network_metadata_and_numpy_only_stages",
+    "cuda_device": "cuda:0"
   },
   "audio": {
     "sample_rate": 16000,
@@ -176,7 +176,8 @@
     "video_codec_fallback": "libx264",
     "preset": "fast",
     "crf": 18,
-    "audio_bitrate": "192k"
+    "audio_bitrate": "192k",
+    "nvenc_gpu": "auto"
   },
   "recovery": {
     "stale_after_minutes": 30,
@@ -186,6 +187,6 @@
     "results_to_fetch": 20,
     "selection_rule": "title + album + video song hd; skip lyric/lyrics/lyrical titles; first remaining result; no duration filtering"
   },
-  "version": "1.4.23-final",
-  "pipeline_version": "1.4.23-cuda-primary-cpu-fallback-direct-selected-youtube-video-no-ytmusicapi-reel-final-path-fix"
+  "version": "1.4.28-gpu-hardening",
+  "pipeline_version": "1.4.28-cuda-first-demucs-mms-silero-nvenc-device-aware-cache"
 }

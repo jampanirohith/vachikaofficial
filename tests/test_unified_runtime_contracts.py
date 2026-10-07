@@ -139,6 +139,22 @@ def test_core_final_package_is_promoted_before_hook():
     assert 'eightd = final_8d' in text
 
 
+def test_unified_config_exposes_canonical_config_path():
+    from src.config import Config
+    import json
+    cfg_data=json.loads(Path('config.json').read_text(encoding='utf-8'))
+    cfg=Config(Path('.').resolve(), cfg_data, 'hash')
+    assert cfg.config_path == Path('config.json').resolve()
+
+def test_alignment_adapter_is_self_contained_and_has_no_archive_config_dependency():
+    from pathlib import Path
+    alignment = Path('src/alignment.py').read_text(encoding='utf-8')
+    assert "cfg.config_path" in alignment
+    assert "archives/phase2" not in alignment
+    db = Path('src/phase2core/db.py').read_text(encoding='utf-8')
+    assert "archives" not in db
+
+
 def test_phase2_database_constructor_matches_alignment_adapter():
     import inspect
     from src.phase2core.db import Database
@@ -396,6 +412,16 @@ def test_hook_queue_resume_uses_persisted_times_without_media_reselection():
     section = text[text.index('def _finalize_from_hook_queue'):text.index('def process_entry')]
     assert 'select_video(' not in section
     assert 'youtube_video_url' in section and 'youtube_offset_ms' in section
+
+
+def test_hook_queue_stale_source_package_recovers_into_normal_pipeline():
+    from pathlib import Path
+    text = Path("src/pipeline.py").read_text(encoding="utf-8")
+    assert "def _hook_queue_sources_exist" in text
+    assert "def _mark_hook_queue_stale" in text
+    assert "has a stale hook queue entry" in text
+    assert "SOURCE_PACKAGE_MISSING" in text
+    assert "queued = None" in text
 
 
 def test_hook_queue_is_written_before_manual_hook_prompt():

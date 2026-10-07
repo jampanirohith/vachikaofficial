@@ -30,21 +30,9 @@ class Database:
         self.conn.executescript("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
         current = self.conn.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()
         if current is None:
-            # The unified runtime is imported from <project>/src, while the
-            # original Phase-2 archive keeps its schema under archives/.  The
-            # old code only knew the archive layout, so the copied runtime
-            # looked for <project>/src/sql/001_initial.sql and crashed before
-            # alignment could start.  Keep a project-local schema as the
-            # primary runtime resource and retain the archived schema as a
-            # compatibility fallback.
-            candidates = (
-                Path(__file__).resolve().parent.parent / "sql" / "001_initial.sql",
-                Path(__file__).resolve().parents[2] / "archives" / "phase2" / "phase2_final_build" / "sql" / "001_initial.sql",
-            )
-            schema = next((candidate for candidate in candidates if candidate.is_file()), None)
-            if schema is None:
-                searched = ", ".join(str(candidate) for candidate in candidates)
-                raise FileNotFoundError(f"Phase-2 database schema 001_initial.sql not found; searched: {searched}")
+            schema = Path(__file__).resolve().parent.parent / "sql" / "001_initial.sql"
+            if not schema.is_file():
+                raise FileNotFoundError(f"Phase-2 database schema 001_initial.sql not found: {schema}")
             self.conn.executescript(schema.read_text(encoding="utf-8"))
             self.conn.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version',?)", (str(SCHEMA_VERSION),))
         elif int(current["value"]) != SCHEMA_VERSION:

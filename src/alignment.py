@@ -12,7 +12,7 @@ def run_alignment(cfg,work,mp3,lrc,source_json,predecoded_source,precomputed_voc
  base=Path(work)/'alignment';base.mkdir(parents=True,exist_ok=True)
  inp=base/'input';inp.mkdir(exist_ok=True);final=base/'final';final.mkdir(exist_ok=True);db=base/'db';db.mkdir(exist_ok=True)
  models=configure_model_cache(cfg.path('paths.models_dir'))
- local_cfg=json.loads((Path(__file__).resolve().parent.parent/'archives'/'phase2'/'phase2_final_build'/'config.json').read_text(encoding='utf-8'))
+ local_cfg=json.loads(Path(cfg.config_path).read_text(encoding='utf-8'))
  local_cfg['paths']={'original_dir':str(inp),'final_dir':str(final),'temp_dir':str(base/'temp'),'db_dir':str(db),'models_dir':str(models)}
  local_cfg['runtime']={**local_cfg.get('runtime',{}),'device':cfg.get('runtime.device','cuda'),'fallback_device':cfg.get('runtime.fallback_device','cpu'),'require_cuda':False,'allow_cpu_fallback':True}
  local_cfg['models']=dict(local_cfg.get('models',{}));local_cfg['models']['demucs_model']=cfg.get('demucs.model','htdemucs')

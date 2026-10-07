@@ -34,6 +34,9 @@ class Config:
         return p if p.is_absolute() else self.root / p
 
     @property
+    def config_path(self): return self.root / 'config.json'
+
+    @property
     def db_dir(self): return self.path('paths.database_dir')
     @property
     def work_dir(self): return self.path('paths.work_dir')

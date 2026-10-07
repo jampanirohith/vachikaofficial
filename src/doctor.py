@@ -35,10 +35,7 @@ def run_doctor(cfg):
         print('Spotify user auth   MISSING (required for playlist/catalog)')
     ok = ok and spotify_ok
 
-    ytm_auth = cfg.path("ytmusic.auth_file") if cfg.get("ytmusic.auth_file") else None
-    ytm_ok = bool(ytm_auth and ytm_auth.exists() and ytm_auth.stat().st_size > 0) if cfg.get("ytmusic.require_auth", True) else True
-    print(f"YTMusic auth        {ytm_auth if ytm_ok and ytm_auth else ('optional' if not cfg.get('ytmusic.require_auth', True) else 'MISSING')}")
-    ok = ok and ytm_ok
+    print("YTMusic auth        NOT REQUIRED (unauthenticated catalog search)")
 
     try:
         import torch

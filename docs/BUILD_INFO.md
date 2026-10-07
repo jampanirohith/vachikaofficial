@@ -1,8 +1,20 @@
-# Build information — Unified Spotify-first final
+# Build information — Unified Spotify-first CUDA-first release
+
+## Release 1.4.28 GPU hardening
+
+- Made HTDemucs explicitly CUDA-first and added device-aware stem-cache validation. CPU-created stems are automatically rebuilt when a CUDA-capable runtime becomes available.
+- Made Telugu MMS/CTC alignment explicitly CUDA-first through the configured PyTorch device, with runtime/device provenance recorded in the final Phase-2 metadata.
+- Moved Silero VAD model and input tensors to CUDA when available, with safe CPU fallback and device-aware activity-cache reuse.
+- Kept NVIDIA NVENC as the preferred video encoder with runtime FFmpeg encoder detection and CPU `libx264` fallback.
+- Added centralized PyTorch CUDA detection/resolution in `src/gpu.py`.
+- Pinned CUDA PyTorch wheels remain the project installation contract (`torch==2.9.1+cu128`, `torchaudio==2.9.1+cu128`).
+- Active validation: 74 tests passed; Python compileall passed.
+- Build-container hardware check: PyTorch is `2.10.0+cpu`, `torch.cuda.is_available()` is false, and `nvidia-smi` is unavailable here, so a physical NVIDIA runtime test could not be performed in this packaging environment.
+
 
 ## Build
 
-Version: `1.4.19-final`
+Version: `1.4.28-gpu-hardening`
 
 This build integrates the supplied Phase 1, Phase 2, and Phase 3 projects under the current Spotify-first unified contract.
 
@@ -19,6 +31,13 @@ This build integrates the supplied Phase 1, Phase 2, and Phase 3 projects under 
 - Canonicalized the shortest valid stem frame count and cropped **every** stem, including drums, before mixing.
 - Added regression coverage for unequal stem lengths and the exact drums mixing path that previously caused NumPy broadcasting failure.
 - Verified the complete active test suite after the fix.
+
+## Release 1.4.25 fix
+
+- Fixed fresh-run `HOOK_QUEUE_SOURCE_MISSING` crashes caused by tracking `songs/final/hook_queue.json` while generated `songs/final` media artifacts remain ignored.
+- A queue entry is now considered stale when its persisted MP3/LRC/word-level LRC/8D/JSON source package is absent. The entry is marked `stale` with `SOURCE_PACKAGE_MISSING`, then normal pipeline processing resumes.
+- This keeps the durable hook queue architecture while making it safe across clean checkouts, cloned repositories, and deleted generated output.
+- Unified active tests: 72 passed.
 
 ## Active behavioral contract
 

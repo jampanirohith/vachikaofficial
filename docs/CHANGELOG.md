@@ -1,3 +1,27 @@
+# v1.4.28.1 — Telugu LRC script gate
+
+- Added a hard post-selection lyrics gate requiring at least one Telugu Unicode code point (U+0C00–U+0C7F) in the complete selected LRC.
+- Romanized/Latin-only synchronized lyrics are now terminally skipped before alignment, visual search, 8D, hook, or reel generation.
+- The gate applies to both freshly fetched and cached LRC selections.
+- Bumped the lyrics fingerprint strategy so existing cached lyrics are re-evaluated under the new rule.
+- Added regression tests for Telugu acceptance, Romanized rejection, gate ordering, and fingerprint invalidation.
+
+## v1.4.28-gpu-hardening
+- Made HTDemucs CUDA-first with `--device cuda` routing and device-aware cached-stem validation; CPU-generated stems are rebuilt when CUDA becomes available.
+- Made Telugu MMS/CTC alignment CUDA-first and record requested/actual device provenance.
+- Made Silero VAD CUDA-first with safe CPU fallback and device-aware activity-cache invalidation.
+- Kept NVENC as the preferred Reel/video encoder with runtime detection and `libx264` fallback.
+- Added centralized CUDA device resolution and diagnostics.
+- Active tests: 74 passed; Python compileall passed.
+- Physical NVIDIA validation was not possible in the packaging environment because its installed PyTorch is CPU-only.
+
+## v1.4.27-final
+- Fixed a fresh-run crash when tracked `songs/final/hook_queue.json` contains an entry whose generated song package is missing locally.
+- The pipeline now detects stale queue entries, marks them `stale` with `SOURCE_PACKAGE_MISSING`, and continues through the normal acquisition/alignment/8D pipeline instead of raising `HOOK_QUEUE_SOURCE_MISSING`.
+- This specifically supports clean Git checkouts where `hook_queue.json` is tracked but generated audio/LRC/8D/JSON files are intentionally ignored.
+- Added regression coverage for stale hook-queue source recovery.
+- Unified active test suite: 72 passed.
+
 ## v1.4.24-final
 - Added `hook.skip` configuration to defer interactive hook selection without rerunning expensive stages.
 - Added persistent `songs/final/hook_queue.json` with song/path/LRC/hook timing and exact selected YouTube visual URL + offset provenance.
@@ -73,6 +97,15 @@
 - Kept CUDA as primary with CPU fallback and pre-hook final-package promotion.
 
 # Changelog
+
+## Current correction — unauthenticated YT Music search
+- Removed the mandatory YT Music `browser.json` authentication gate from the active acquisition and visual-reference paths.
+- YT Music catalog search now always uses the unauthenticated `YTMusic()` client.
+- Replaced closest-duration-only selection with weighted title/artist/album/duration candidate scoring, while retaining the Spotify-duration tolerance gate.
+- No alternate search/download fallback was added.
+- Validation: 79 tests passed; Python compileall passed.
+
+
 
 ## 1.4.8-final
 - Visual YouTube search is exactly `title + album + video song hd`; skip `lyric`, `lyrics`, `lyrical`; first remaining result; no duration filtering.

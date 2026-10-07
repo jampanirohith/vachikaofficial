@@ -24,9 +24,8 @@ def _client(cfg):
     cached=getattr(cfg, '_ytm_client', None)
     if cached is not None:
         return cached
-    auth = cfg.path("ytmusic.auth_file") if cfg.get("ytmusic.auth_file") else None
-    if not auth or not Path(auth).exists():
-        raise RuntimeError("YTM_AUTH_REQUIRED: configure ytmusic.auth_file before YouTube/YT Music media access")
+    # Media client is also initialized without YT Music account authentication.
+    auth = None
     ytdlp_cfg = dict(cfg.get("ytmusic.yt_dlp", {}) or {})
     cookie_file = ytdlp_cfg.get("cookie_file")
     if cookie_file:

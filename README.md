@@ -15,17 +15,37 @@ For each song, Spotify is the catalog authority: the complete track/album/artist
 YT Music is used only for media selection. The query is `title + album`; the all returned search candidates with known durations are evaluated; the candidate with the closest duration to the Spotify catalog duration is selected, and no candidate is accepted outside the configured tolerance. The selected result is converted to its canonical `https://music.youtube.com/watch?v=...` URL and passed directly to `yt-dlp` for high-quality audio acquisition. yt-dlp is not used to search, rank, or discover candidates. The final audio is converted to MP3 at the configured output bitrate through FFmpeg.
 
 ## Setup
+## NVIDIA GPU / CUDA policy
 
-0. Create & Run Virtual Environment
+The runtime is **CUDA-first** for PyTorch workloads. The configured preferred device is `cuda` (GPU 0 by default), with CPU fallback only when CUDA is unavailable or a CUDA inference/separation attempt fails. The GPU-capable stages are:
+
+- **HTDemucs**: launched with `demucs.separate --device cuda` and recorded in `audio/stems/demucs_manifest.json`.
+- **Telugu MMS alignment**: the Hugging Face CTC model is moved to CUDA and input tensors follow the model device.
+- **Silero VAD**: the Torch model and audio tensor are moved to CUDA when available.
+- **Reel video encoding**: FFmpeg prefers `h264_nvenc` and falls back to `libx264` only if NVENC is unavailable or fails.
+
+Network requests, Spotify/YT Music metadata, SQLite, file hashing, Mutagen/ID3, PCM file I/O, and CPU-oriented NumPy/SciPy transforms remain on CPU because moving those operations to CUDA would not provide a supported or meaningful acceleration path.
+
+The project also invalidates/rebuilds cached Demucs and alignment/VAD work when a prior run was CPU-backed and a CUDA-capable runtime is now available. This prevents a later GPU run from silently reusing CPU results.
+
+For Windows NVIDIA setup:
 
 ```powershell
-python -m venv .venv
-source .venv/bin/activate
+powershell -ExecutionPolicy Bypass -File scripts/install_windows_cuda.ps1
+powershell -ExecutionPolicy Bypass -File scripts/verify_windows_gpu.ps1
+python main.py --doctor
+```
+
+0. Create & Start Envirnment:
+```powershell
+python -m venv .venv  
+.\venv\Scripts\Activate.ps1  
 ```
 
 1. Install dependencies:
 
 ```powershell
+python -m pip install --upgrade pip   
 python -m pip install -r requirements.txt
 ```
 

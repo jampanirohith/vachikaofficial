@@ -1,22 +1,22 @@
 {
   "project": "Unified Spotify Telugu Music Reel",
-  "version": "1.4.24-final",
-  "generated_at_utc": "2026-10-06T09:02:00+00:00",
+  "version": "1.4.28-gpu-hardening",
+  "generated_at_utc": "2026-10-07T04:00:00+00:00",
   "active_contract": {
     "playlist_source": "Spotify API, one frozen first-run snapshot",
     "playlist_order": "exact Spotify playlist order",
     "ranking": "none",
     "spotify_metadata": "full Spotify catalog metadata for processing; ISRC is the duplicate key",
-    "audio_acquisition": "YT Music API search + closest Spotify-duration result + yt-dlp selected-URL download + FFmpeg MP3",
+    "audio_acquisition": "Unauthenticated YT Music API search + title/artist/album/duration candidate scoring within Spotify-duration tolerance + yt-dlp selected-URL download + FFmpeg MP3",
     "downstream": "lyrics -> Demucs -> Telugu alignment -> whole-song 8D -> optional hook deferral -> Reel-only queue resume"
   },
   "validation": {
-    "unified_tests": "71 passed",
+    "unified_tests": "79 passed",
     "python_compileall": "passed",
     "playlist_db_integrity": "ok",
     "songs_db_integrity": "ok",
     "reels_db_integrity": "ok",
-    "latest_fix": "Added configurable hook deferral with persistent hook_queue.json and Reel-only resume from human-editable hook times; exact selected YouTube visual URL and offset are persisted so no second search or expensive stage rerun is required.",
+    "latest_fix": "CUDA-first hardening for HTDemucs, MMS/CTC, Silero VAD and NVENC, including device-aware cache invalidation and runtime provenance.",
     "live_yt_dlp_network_validation": "not run in build container; outbound package/network access unavailable",
     "archived_suites": "not re-run in this packaging pass"
   },
@@ -24,10 +24,19 @@
     "Existing user database state is preserved when updating the code; do not overwrite db/ files unless intentionally migrating.",
     "yt-dlp downloads only the exact selected URL: the authoritative audio stage receives the selected music.youtube.com URL, while the visual reference stage receives the selected YouTube watch URL. Neither stage is allowed to title-search for a replacement recording."
   ],
-  "cpu_runtime_policy": "CUDA-primary; automatic CPU fallback for Demucs and Phase-2 MMS/alignment when CUDA is unavailable.",
-  "tests": "71 passed",
+  "cpu_runtime_policy": "CUDA-primary for PyTorch models and NVIDIA NVENC; automatic CPU fallback when CUDA/NVENC is unavailable or fails.",
+  "tests": "79 passed",
   "model_cache_policy": "All ML model checkpoints are downloaded to and reused from project models/; per-song temp directories contain transient processing artifacts only.",
-  "tests_passed": 71,
-  "latest_fix": "Added configurable hook deferral with persistent hook_queue.json and Reel-only resume from human-editable hook times; exact selected YouTube visual URL and offset are persisted so no second search or expensive stage rerun is required.",
-  "test_command": "pytest -q tests/test_*.py (executed file-by-file)"
+  "tests_passed": 79,
+  "latest_fix": "Unauthenticated YT Music search with strong title/artist/album/duration candidate scoring; no browser.json authentication prerequisite or search fallback.",
+  "test_command": "pytest -q tests/test_*.py",
+  "gpu_runtime_policy": {
+    "torch_device": "cuda",
+    "cuda_device": "cuda:0/default CUDA device",
+    "demucs": "CUDA-first; CPU fallback",
+    "mms_ctc": "CUDA-first; CPU fallback",
+    "silero_vad": "CUDA-first; CPU fallback",
+    "video": "h264_nvenc-first; libx264 fallback",
+    "cpu_only": "network, metadata, SQLite, file I/O, hashing, NumPy/SciPy-oriented audio transforms"
+  }
 }

@@ -10,6 +10,15 @@ from requests import RequestException
 
 LRCLIB_API_URL = "https://lrclib.net/api"
 TIMESTAMP_RE = re.compile(r"\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]")
+# Telugu Unicode block. The lyrics gate intentionally requires at least one
+# Telugu-script code point anywhere in the complete selected LRC; Romanized
+# Telugu/Latin-only lyrics are not suitable for the Telugu CTC alignment path.
+TELUGU_CHAR_RE = re.compile(r"[\u0C00-\u0C7F]")
+
+
+def contains_telugu_script(text: str) -> bool:
+    """Return True when *text* contains at least one Telugu-script character."""
+    return bool(TELUGU_CHAR_RE.search(str(text or "")))
 
 
 class LRCError(RuntimeError):
