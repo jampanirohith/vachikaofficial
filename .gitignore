@@ -10,28 +10,15 @@ venv/
 .ruff_cache/
 .pyre/
 
-.coverage
-.coverage.*
-htmlcov/
-
-build/
-dist/
-*.egg-info/
-.eggs/
-
 logs/
 
 temp/
 
 db/
 
-songs/*
-!songs/.gitkeep
-!songs/final/
-songs/final/*
-!songs/final/hook_queue.json
+songs/
 
-reels/generated/
+reels/
 
 models/*
 !models/README.md
@@ -46,19 +33,6 @@ oauth.json
 *.oauth.json
 
 spotify_auth.json
-
-.env
-.env.*
-!.env.example
-
-*.sqlite-wal
-*.sqlite-shm
-
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-.idea/
 
 .vscode/*
 !.vscode/settings.json
