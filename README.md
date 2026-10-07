@@ -1,18 +1,4 @@
-# Unified Spotify Playlist -> YT Music -> Telugu Word LRC -> Whole-song 8D -> Reel
-
-Version: `1.4.7-final`
-
-This is the unified Windows-first implementation built from the supplied Phase 1, Phase 2, and Phase 3 codebases.
-
-## Source rules
-
-Spotify is the sole playlist source. On the first normal run for a new playlist ID, the program fetches the complete playlist through the Spotify Web API, records every returned entry in exact Spotify order in `playlist.db`, prints completion, and exits. It performs no song processing during that first run.
-
-Later runs use the frozen playlist snapshot and process one actionable song at a time in exact stored Spotify order. The playlist is never refreshed during normal processing. There is no view/play/popularity/ranking stage.
-
-For each song, Spotify is the catalog authority: the complete track/album/artist API payload is stored, including raw catalog JSON, exact album artwork bytes, and ISRC. Spotify audio is never downloaded.
-
-YT Music is used only for media selection. The query is `title + album`; the all returned search candidates with known durations are evaluated; the candidate with the closest duration to the Spotify catalog duration is selected, and no candidate is accepted outside the configured tolerance. The selected result is converted to its canonical `https://music.youtube.com/watch?v=...` URL and passed directly to `yt-dlp` for high-quality audio acquisition. yt-dlp is not used to search, rank, or discover candidates. The final audio is converted to MP3 at the configured output bitrate through FFmpeg.
+# Vachika Official
 
 ## Setup
 ## NVIDIA GPU / CUDA policy
@@ -36,22 +22,21 @@ powershell -ExecutionPolicy Bypass -File scripts/verify_windows_gpu.ps1
 python main.py --doctor
 ```
 
-0. Create & Start Envirnment:
+### 1. Create & Start Envirnment:
 ```powershell
-python -m venv .venv  
-.\venv\Scripts\Activate.ps1  
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-1. Install dependencies:
-
+### 2. Install dependencies:
 ```powershell
-python -m pip install --upgrade pip   
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-2. Install and verify FFmpeg/FFprobe.
+### 3. Install and verify FFmpeg/FFprobe.
 
-3. Configure Spotify OAuth for playlist and catalog access:
+### 4. Configure Spotify OAuth for playlist and catalog access:
 
 ```powershell
 python scripts/setup_spotify_auth.py
@@ -59,13 +44,8 @@ python scripts/setup_spotify_auth.py
 
 The generated `spotify_auth.json` uses the playlist-read scopes required by the current Spotify playlist-items API.
 
-4. Configure YT Music authentication:
 
-```powershell
-python scripts/setup_ytmusic_auth.py
-```
-
-5. Put your Spotify playlist ID in `config.json`:
+### 5. Put your Spotify playlist ID in `config.json`:
 
 ```json
 "playlist": {
@@ -74,7 +54,7 @@ python scripts/setup_ytmusic_auth.py
 }
 ```
 
-6. Run:
+### 6. Run:
 
 ```powershell
 python main.py --doctor

@@ -1,0 +1,11 @@
+take your time and anlyse the complete zip and remove all the unwanted files from the project zip, like old files or something, analyse all the files without skipping anything
+
+
+
+make it so that i can download all the models before first run with a command
+
+
+improvments to make:
+1. 8d pipeline
+2. offset calculation
+3. one by one word lyrics on the final video

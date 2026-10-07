@@ -435,12 +435,29 @@ class Pipeline:
             "output_path": str(work / "audio" / "hook_8d.mp3"),
             "output_sha256": sha256_file(work / "audio" / "hook_8d.mp3"), "status": "validated",
         })
+        guard_before_ms = int(self.cfg.get("video_match.guard_before_ms", 1500))
+        guard_after_ms = int(self.cfg.get("video_match.guard_after_ms", 1500))
+        mapped_start_ms = hs + offset_ms
+        mapped_end_ms = he + offset_ms
+        trim_start_ms = min(guard_before_ms, mapped_start_ms)
+
         self.reels_db.upsert("reel_video", "reel_key", reel_key, {
-            "video_source_id": video_id, "source_url": video_url, "source_start_ms": hs + offset_ms,
-            "source_end_ms": he + offset_ms, "requested_duration_ms": he-hs,
-            "actual_duration_ms": rv.get("probe", {}).get("duration_ms"), "width": 1080, "height": 1920,
-            "panel_height_px": int(1920 * 0.8), "panel_height_percent": 80.0,
-            "encoder": rv.get("probe", {}).get("video_codec"), "output_path": str(reel_final), "status": "validated",
+            "video_source_id": video_id,
+            "source_url": video_url,
+            "source_start_ms": mapped_start_ms,
+            "source_end_ms": mapped_end_ms,
+            "guard_before_ms": guard_before_ms,
+            "guard_after_ms": guard_after_ms,
+            "trim_start_ms": trim_start_ms,
+            "requested_duration_ms": he - hs,
+            "actual_duration_ms": rv.get("probe", {}).get("duration_ms"),
+            "width": 1080,
+            "height": 1920,
+            "panel_height_px": int(1920 * 0.8),
+            "panel_height_percent": 80.0,
+            "encoder": rv.get("probe", {}).get("video_codec"),
+            "output_path": str(reel_final),
+            "status": "validated",
         })
         self.reels_db.upsert("reel_lyrics", "reel_key", reel_key, {
             "wordlevel_lrc_path": str(final_wlrc), "wordlevel_lrc_sha256": sha256_file(final_wlrc),
@@ -448,11 +465,15 @@ class Pipeline:
             "placement": "center", "line_behavior": "one_line_at_a_time", "word_highlight_enabled": 1, "status": "validated",
         })
         self.reels_db.upsert("reel_validation", "reel_key", reel_key, {
-            "overall": int(bool(rv["overall"])), "failed_checks_json": json.dumps(rv.get("failed_checks", []), ensure_ascii=False),
-            "output_exists": int(rv["checks"].get("exists", False)), "output_duration_matches": int(rv["checks"].get("duration_match", False)),
-            "resolution_valid": int(rv["checks"].get("resolution_valid", False)), "aspect_ratio_valid": int(rv["checks"].get("aspect_ratio_valid", False)),
-            "audio_stereo": int(rv["checks"].get("audio_stereo", False)), "has_video": int(rv["checks"].get("has_video", False)),
-            "status": "validated" if rv["overall"] else "failed",
+            "overall": int(bool(rv["overall"])),
+            "failed_checks_json": json.dumps(rv.get("failed_checks", []), ensure_ascii=False),
+            "output_exists": int(rv["checks"].get("exists", False)),
+            "output_duration_matches": int(rv["checks"].get("duration_match", False)),
+            "resolution_valid": int(rv["checks"].get("resolution_valid", False)),
+            "aspect_ratio_valid": int(rv["checks"].get("aspect_ratio_valid", False)),
+            "audio_stereo": int(rv["checks"].get("audio_stereo", False)),
+            "codec_valid": int(str(rv.get("probe", {}).get("video_codec", "")).lower().startswith("h264")),
+            "created_at": "__CURRENT_TIMESTAMP__",
         })
         self.reels_db.update(reel_key, pipeline_status="FINALIZED", terminal=1,
             final_reel_path=str(reel_final.relative_to(self.cfg.root)), final_reel_json_path=str(reel_json_final.relative_to(self.cfg.root)),
