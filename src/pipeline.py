@@ -799,10 +799,15 @@ class Pipeline:
             ref_fp = stable_json_hash({
                 "source_sha256": src_hash,
                 "visual_video_id": video.video_id,
-                "reference_duration_ms": 30000,
-                "max_offset_ms": 30000,
-                "scan_step_ms": int(self.cfg.get("youtube_offset.scan_step_ms", 250)),
-                "method_version": self.cfg.get("youtube_offset.method_version", "unified-offset-v1"),
+                "reference_duration_ms": int(duration_ms(source16)),
+                "frame_ms": int(self.cfg.get("youtube_offset.frame_ms", 25)),
+                "coarse_step_ms": int(self.cfg.get("youtube_offset.coarse_step_ms", 250)),
+                "fine_step_ms": int(self.cfg.get("youtube_offset.fine_step_ms", 25)),
+                "method_version": (
+                    self.cfg.get("youtube_offset.method_version")
+                    if self.cfg.get("youtube_offset.method_version") not in (None, "", "unified-offset-v1")
+                    else "full-song-energy-envelope-v2"
+                ),
             })
             # Download/reference-sync the exact selected URL. This is NOT a new search.
             # Never rebuild a YouTube query here and never select a different video for the hook.
@@ -834,13 +839,17 @@ class Pipeline:
                 "offset_ms": offset["candidate_offset_ms"],
                 "offset_seconds": offset["candidate_offset_ms"] / 1000,
                 "match_score": offset["total_score"],
-                "waveform_score": offset["waveform_score"],
-                "energy_score": offset["energy_score"],
-                "peak_valley_score": offset["peak_valley_score"],
-                "transition_score": offset["transition_score"],
-                "reference_duration_ms": 30000,
-                "max_accepted_offset_ms": 30000,
-                "method_version": self.cfg.get("youtube_offset.method_version", "unified-offset-v1"),
+                "waveform_score": offset.get("waveform_score"),
+                "energy_score": offset.get("energy_score"),
+                "peak_valley_score": offset.get("peak_valley_score"),
+                "transition_score": offset.get("transition_score"),
+                "reference_duration_ms": offset.get("reference_duration_ms"),
+                "max_accepted_offset_ms": offset.get("max_possible_offset_ms"),
+                "method_version": (
+                    self.cfg.get("youtube_offset.method_version")
+                    if self.cfg.get("youtube_offset.method_version") not in (None, "", "unified-offset-v1")
+                    else "full-song-energy-envelope-v2"
+                ),
             })
 
             shutil.copy2(acq["mp3"], work / "source.mp3")

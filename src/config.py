@@ -58,10 +58,12 @@ class Config:
             raise ValueError('playlist.spotify_playlist_id is required')
         if self.get('playlist.provider', 'spotify') != 'spotify':
             raise ValueError('playlist.provider must be spotify')
-        if int(self.get('youtube_offset.reference_duration_ms', 30000)) != 30000:
-            raise ValueError('youtube_offset.reference_duration_ms must be 30000')
-        if int(self.get('youtube_offset.max_accepted_offset_ms', 30000)) != 30000:
-            raise ValueError('youtube_offset.max_accepted_offset_ms must be 30000')
+        if int(self.get('youtube_offset.frame_ms', 25)) < 10:
+            raise ValueError('youtube_offset.frame_ms must be >= 10')
+        if int(self.get('youtube_offset.coarse_step_ms', 250)) < 1:
+            raise ValueError('youtube_offset.coarse_step_ms must be >= 1')
+        if int(self.get('youtube_offset.fine_step_ms', 25)) < 1:
+            raise ValueError('youtube_offset.fine_step_ms must be >= 1')
         if str(self.get('lyrics.endpoint', '/api/get')) != '/api/get':
             raise ValueError('lyrics.endpoint must remain /api/get')
         if str(self.get('duplicate_detection.identifier', 'isrc')).lower() != 'isrc':

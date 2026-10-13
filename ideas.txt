@@ -5,6 +5,11 @@ take your time and anlyse the complete zip and remove all the unwanted files fro
 make it so that i can download all the models before first run with a command
 
 
+make the database clean, the songs database should only include the song details and the reels should only include song details, analyse current structe and integrate the remaingn things in playlist database
+
+the json in the songs/final folder should contian all the work done for the song, analyse current pipeline and tell me what to change
+
+
 improvments to make:
 1. 8d pipeline
 2. offset calculation

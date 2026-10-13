@@ -104,7 +104,7 @@ def build_reel(cfg, work, song, hook_start, hook_end, yt_video_source, yt_offset
         'youtube':{'video_source':str(yt_video_source),'offset_ms':int(yt_offset),'mapped_start_ms':mapped_start,'mapped_end_ms':mapped_end},
         'audio':{'source_8d':song['eight_d_path'],'source_8d_sha256':sha256_file(song['eight_d_path']),'crop_start_ms':hook_start,'crop_end_ms':hook_end,'output_duration_ms':duration_ms(audio),'output_sha256':sha256_file(audio)},
         'video':{'source_section':str(section),'exact_video':str(trimmed),'rendered':str(rendered),'width':1080,'height':1920,'panel_height_percent':80.0,'encoder':validation['probe'].get('video_codec')},
-        'lyrics':{'wordlevel_lrc':str(wordlevel_lrc),'wordlevel_lrc_sha256':sha256_file(wordlevel_lrc),'line_count':len(rows),'font':'Baloo Tammudu 2 ExtraBold','placement':'center','current_word_highlighting':True},
+        'lyrics':{'wordlevel_lrc':str(wordlevel_lrc),'wordlevel_lrc_sha256':sha256_file(wordlevel_lrc),'line_count':len(rows),'font':'Baloo Tammudu 2 ExtraBold','placement':'center','word_by_word':True,'word_fade_in_ms':int(cfg.get('lyrics.word_fade_in_ms',80)),'word_fade_out_ms':int(cfg.get('lyrics.word_fade_out_ms',450))},
         'validation':validation,
         'output':{'path':f'reels/generated/{final_name}.mp4','json_path':f'reels/generated/{final_name}.json','duration_ms':duration_ms(staged_mp4),'sha256':sha256_file(staged_mp4)}
     }
