@@ -4,10 +4,10 @@ from typing import Any
 
 import numpy as np
 
-from .audio import AudioManager
-from .types import ActivityResult
-from .utils import merge_intervals
-from ..gpu import resolve_device
+from src.phase2core.audio import AudioManager
+from src.phase2core.types import ActivityResult
+from src.phase2core.utils import merge_intervals
+from src.common.gpu import resolve_device
 
 
 class ActivityDetector:

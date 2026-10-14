@@ -1,5 +1,5 @@
 from pathlib import Path
-from src import audio_unified
+from src.audio import source_audio as audio_unified
 
 def test_windows_ffmpeg_output_explicit_wav(monkeypatch,tmp_path):
  seen=[]
@@ -27,10 +27,11 @@ def test_full_source_decode_is_lossless_working_representation(monkeypatch,tmp_p
         seen.append(cmd)
         Path(cmd[-1]).write_bytes(b'x'*20000)
         return P()
+    source = tmp_path/'song.mp3'; source.write_bytes(b'source-mp3')
     monkeypatch.setattr(audio_unified,'MP3',fake_mp3)
     monkeypatch.setattr(audio_unified,'run',fake_run)
     monkeypatch.setattr(audio_unified,'duration_ms',lambda p:10000)
     monkeypatch.setattr(audio_unified,'sha256_file',lambda p:'h')
-    out,meta=audio_unified.prepare_full_source(tmp_path/'song.mp3',tmp_path)
+    out,meta=audio_unified.prepare_full_source(source,tmp_path)
     assert out.suffix=='.wav' and meta['sample_rate']==44100 and meta['channels']==2
     assert '-f' in seen[0] and 'wav' in seen[0] and '-ac' in seen[0] and '2' in seen[0]

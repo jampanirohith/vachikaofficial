@@ -1,9 +1,9 @@
 {
   "project": {
     "name": "Unified Spotify Playlist -> YT Music -> Telugu Word LRC -> Whole-song 8D -> Reel",
-    "version": "1.4.28-gpu-hardening",
+    "version": "1.4.30-src-organized",
     "plan": "PROJECT_PLAN.md",
-    "pipeline_version": "1.4.28-cuda-first-demucs-mms-silero-nvenc-device-aware-cache"
+    "pipeline_version": "1.4.30-package-architecture-manifest-v2"
   },
   "playlist": {
     "provider": "spotify",
@@ -31,7 +31,7 @@
     "market": "IN",
     "timeout_seconds": 30,
     "max_retries": 4,
-    "redirect_uri": "http://127.0.0.1:8080",
+    "redirect_uri": "http://127.0.0.1:8888/callback",
     "require_user_auth": true
   },
   "ytmusic": {
@@ -59,7 +59,7 @@
     "max_retries": 3,
     "request_delay_seconds": 0.5,
     "font_filename": "Suravaram-Regular.ttf",
-    "font_name": "Suravaram-Regular",
+    "font_name": "Suravaram",
     "font_size": 80,
     "font_bold": false,
     "outline": 3,
@@ -86,11 +86,13 @@
     "search_only_finalized": true
   },
   "youtube_offset": {
-    "reference_duration_ms": 30000,
-    "max_accepted_offset_ms": 30000,
-    "scan_step_ms": 250,
-    "download_timeout_seconds": 900,
-    "method_version": "unified-offset-v1"
+    "frame_ms": 25,
+    "coarse_step_ms": 250,
+    "fine_step_ms": 25,
+    "min_match_score": 0.2,
+    "min_peak_margin": 0.04,
+    "ambiguity_window_ms": 1000,
+    "method_version": "full-song-energy-envelope-v3"
   },
   "models": {
     "mms_model": "facebook/mms-1b-all",
@@ -104,8 +106,8 @@
   "runtime": {
     "device": "cuda",
     "fallback_device": "cpu",
-    "require_cuda": true,
-    "allow_cpu_fallback": false,
+    "require_cuda": false,
+    "allow_cpu_fallback": true,
     "print_device_banner": true,
     "gpu_policy": "cuda_first_for_torch_models_and_nvenc;cpu_for_io_network_metadata_and_numpy_only_stages",
     "cuda_device": "cuda:0"
@@ -117,7 +119,7 @@
   "demucs": {
     "model": "htdemucs",
     "segment_seconds": 8,
-    "retry_segment_seconds": 8,
+    "retry_segment_seconds": 4,
     "timeout_seconds": 7200
   },
   "vad": {
@@ -189,6 +191,6 @@
     "results_to_fetch": 20,
     "selection_rule": "title + album + video song hd; skip lyric/lyrics/lyrical titles; first remaining result; no duration filtering"
   },
-  "version": "1.4.28-gpu-hardening",
-  "pipeline_version": "1.4.28-cuda-first-demucs-mms-silero-nvenc-device-aware-cache"
+  "version": "1.4.30-src-organized",
+  "pipeline_version": "1.4.30-package-architecture-manifest-v2"
 }

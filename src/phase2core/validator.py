@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from statistics import median
 
-from .types import AlignedWord, LyricDocument, QualityMetrics
-from .utils import percentile
+from src.phase2core.types import AlignedWord, LyricDocument, QualityMetrics
+from src.phase2core.utils import percentile
 
 
 class Validator:

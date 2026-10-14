@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from .utils import now_iso
+from src.phase2core.utils import now_iso
 
 SCHEMA_VERSION = 1
 

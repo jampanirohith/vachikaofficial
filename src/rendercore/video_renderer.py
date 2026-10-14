@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import subprocess
-from .utils import Phase3Error, ffmpeg_has_encoder, nvenc_video_args, run_cmd
+from src.rendercore.utils import Phase3Error, ffmpeg_has_encoder, nvenc_video_args, run_cmd
 
 class VideoRenderer:
     """Render a static, centered 80%-height video panel on a 1080x1920 canvas.

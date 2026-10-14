@@ -1,4 +1,4 @@
-from src.spotify import SpotifyClient
+from src.providers.spotify import SpotifyClient
 
 
 def test_full_track_collects_track_album_artists_and_isrc(monkeypatch):
@@ -19,8 +19,8 @@ def test_full_track_collects_track_album_artists_and_isrc(monkeypatch):
 
 
 def test_full_track_fetches_album_artist_details(monkeypatch):
-    from src.spotify import SpotifyClient, apply_spotify_metadata
-    from src.metadata import NormalizedMetadata
+    from src.providers.spotify import SpotifyClient, apply_spotify_metadata
+    from src.common.metadata import NormalizedMetadata
     c=SpotifyClient({'client_id':'x','client_secret':'y','use_env':False,'market':'IN','max_retries':1,'timeout_seconds':5})
     monkeypatch.setattr(c,'_get_token',lambda:'tok')
     calls=[]

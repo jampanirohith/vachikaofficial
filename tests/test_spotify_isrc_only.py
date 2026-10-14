@@ -1,4 +1,4 @@
-from src.db_songs import SongsDB
+from src.storage.song_db import SongsDB
 
 
 def test_isrc_duplicate_searches_only_finalized_songs(tmp_path):

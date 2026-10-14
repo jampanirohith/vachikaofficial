@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import replace
 
-from .types import AlignedWord, ChunkAlignment, LyricDocument, SourceWord
+from src.phase2core.types import AlignedWord, ChunkAlignment, LyricDocument, SourceWord
 
 
 class Merger:

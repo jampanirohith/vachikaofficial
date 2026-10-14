@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .utils import sha256_text
+from src.phase2core.utils import sha256_text
 
 
 @dataclass(slots=True)

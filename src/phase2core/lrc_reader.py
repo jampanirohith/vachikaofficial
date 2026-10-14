@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .types import LRCLine, LRCMetadata, LyricDocument
-from .utils import sha256_text
+from src.phase2core.types import LRCLine, LRCMetadata, LyricDocument
+from src.phase2core.utils import sha256_text
 
 TIMESTAMP_RE = re.compile(r"\[(\d+):(\d{2})(?:\.(\d{1,3}))?\]")
 META_RE = re.compile(r"^\[([A-Za-z][A-Za-z0-9_-]{1,20}):(.*)\]\s*$")

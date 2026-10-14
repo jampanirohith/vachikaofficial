@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .json_manager import JSONManager
-from .types import AlignedWord, ChunkAlignment, LyricDocument, QualityMetrics
+from src.phase2core.json_manager import JSONManager
+from src.phase2core.types import AlignedWord, ChunkAlignment, LyricDocument, QualityMetrics
 
 
 class JSONUpdater:

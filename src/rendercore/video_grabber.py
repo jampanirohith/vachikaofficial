@@ -1,37 +1,65 @@
 from __future__ import annotations
 import json
+import time
 from pathlib import Path
-from .utils import Phase3Error, run_cmd, ffmpeg_has_encoder, nvenc_video_args
-from .audio_io import probe
+from src.rendercore.utils import Phase3Error, run_cmd, ffmpeg_has_encoder, nvenc_video_args
+from src.rendercore.audio_io import probe
+from src.common.hashing import sha256_file
 
 class VideoGrabber:
     def __init__(self,cfg,work_dir,logger): self.cfg=cfg;self.work=Path(work_dir);self.logger=logger
 
-    def _section_request(self,video_id,start_ms,end_ms):
-        gb=int(self.cfg.get('video_match.guard_before_ms',1500));ga=int(self.cfg.get('video_match.guard_after_ms',1500))
-        return {'video_id':str(video_id),'requested_start_ms':max(0,int(start_ms)-gb),'requested_end_ms':int(end_ms)+ga,'guard_before_ms':gb,'guard_after_ms':ga}
+    def download_section(self, video_source, start_ms, end_ms):
+        """Download/cache the complete selected source video.
 
-    def download_section(self,video_source,start_ms,end_ms):
-        outdir=self.work/'video';outdir.mkdir(parents=True,exist_ok=True);out=outdir/'downloaded_with_guard.mp4';meta=outdir/'downloaded_with_guard.request.json'
-        video_url = str(video_source)
-        if video_url.startswith('http://') or video_url.startswith('https://'):
+        yt-dlp's ordinary download call fetches the full source; it does not make a
+        guarded clip just because caller timestamps were supplied. The returned media
+        therefore always uses the video's original zero-based timeline. Reel trimming
+        must use the absolute mapped hook start, never a clip-relative guard offset.
+        """
+        outdir = self.work / 'video'
+        outdir.mkdir(parents=True, exist_ok=True)
+        out = outdir / 'downloaded_source.mp4'
+        meta = outdir / 'downloaded_source.request.json'
+        video_url = str(video_source).strip()
+        if video_url.startswith(('http://', 'https://')):
             selected_url = video_url
-            video_id = video_url.split('v=')[-1].split('&')[0] if 'v=' in video_url else video_url.rsplit('/',1)[-1]
+            if 'v=' in video_url:
+                video_id = video_url.split('v=', 1)[1].split('&', 1)[0]
+            else:
+                video_id = video_url.rstrip('/').rsplit('/', 1)[-1]
         else:
-            video_id = str(video_url)
+            video_id = video_url
             selected_url = f'https://www.youtube.com/watch?v={video_id}'
-        request=self._section_request(video_id,start_ms,end_ms)
-        request['source_url']=selected_url
-        if out.exists() and out.stat().st_size>10000 and meta.exists():
+        height = int(self.cfg.get('ytmusic.video_max_height', 1080))
+        request = {
+            'video_id': str(video_id),
+            'source_url': selected_url,
+            'download_mode': 'full-source-video-v2',
+            'max_height': height,
+        }
+        requested_start = max(0, int(start_ms))
+        requested_end = max(requested_start, int(end_ms))
+        if requested_end <= requested_start:
+            raise Phase3Error('VIDEO_SECTION_DOWNLOAD_FAILED', 'Invalid requested source-video time range')
+        if out.exists() and out.stat().st_size > 10000 and meta.exists():
             try:
-                if json.loads(meta.read_text(encoding='utf-8'))==request and probe(out).get('duration_ms',0)>=max(1000,request['requested_end_ms']-request['requested_start_ms']-750): return out
-            except Exception: pass
-        out.unlink(missing_ok=True);meta.unlink(missing_ok=True)
+                old = json.loads(meta.read_text(encoding='utf-8'))
+                duration = int(probe(out).get('duration_ms', 0))
+                if (old.get('request') == request and duration >= requested_end - 250
+                        and old.get('sha256') == sha256_file(out)):
+                    return out
+            except Exception:
+                pass
+        out.unlink(missing_ok=True)
+        meta.unlink(missing_ok=True)
         try:
             import yt_dlp
-            height=int(self.cfg.get('ytmusic.video_max_height',1080))
-            cookiefile=self.cfg.path('ytmusic.cookies_file') if self.cfg.get('ytmusic.cookies_file') else None
-            opts={
+            ytdlp_cfg = dict(self.cfg.get('ytmusic.yt_dlp', {}) or {})
+            download_timeout = int(ytdlp_cfg.get('download_timeout_seconds', self.cfg.get('ytmusic.download_timeout_seconds', 1800)))
+            deadline = time.monotonic() + max(1, download_timeout)
+            from src.common.ytdlp_utils import deadline_progress_hook
+            opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'noplaylist': True,
@@ -39,15 +67,40 @@ class VideoGrabber:
                 'merge_output_format': 'mp4',
                 'outtmpl': str(out),
                 'overwrites': True,
+                'retries': int(ytdlp_cfg.get('retries', 3)),
+                'fragment_retries': int(ytdlp_cfg.get('fragment_retries', 3)),
+                'socket_timeout': int(ytdlp_cfg.get('socket_timeout_seconds', self.cfg.get('ytmusic.timeout_seconds', 60))),
+                'progress_hooks': [deadline_progress_hook(yt_dlp, deadline, selected_url)],
             }
-            if cookiefile and Path(cookiefile).exists(): opts['cookiefile']=str(cookiefile)
+            cookie_file = ytdlp_cfg.get('cookie_file') or self.cfg.get('ytmusic.cookies_file')
+            if cookie_file:
+                cp = Path(cookie_file)
+                cp = cp if cp.is_absolute() else self.cfg.root / cp
+                if cp.exists():
+                    opts['cookiefile'] = str(cp)
+            browser = ytdlp_cfg.get('cookies_from_browser')
+            if browser:
+                opts['cookiesfrombrowser'] = (str(browser), None, None, None)
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([selected_url])
         except Exception as exc:
-            raise Phase3Error('VIDEO_SECTION_DOWNLOAD_FAILED',f'yt-dlp visual download failed: {type(exc).__name__}: {exc}') from exc
-        info=probe(out);actual=int(info.get('duration_ms',0));expected=request['requested_end_ms']-request['requested_start_ms']
-        if actual<max(1000,expected-1000): out.unlink(missing_ok=True);raise Phase3Error('VIDEO_SECTION_DOWNLOAD_FAILED',f'Downloaded visual video is shorter than requested guard span: {actual} vs {expected}')
-        meta.write_text(json.dumps(request,indent=2)+'\n',encoding='utf-8')
+            out.unlink(missing_ok=True)
+            raise Phase3Error('VIDEO_SECTION_DOWNLOAD_FAILED', f'yt-dlp visual download failed: {type(exc).__name__}: {exc}') from exc
+        info = probe(out)
+        actual = int(info.get('duration_ms', 0))
+        if actual <= 0 or actual < requested_end - 250:
+            out.unlink(missing_ok=True)
+            raise Phase3Error('VIDEO_SECTION_DOWNLOAD_FAILED', f'Selected source video does not cover requested range ending at {requested_end} ms; duration={actual} ms')
+        request_payload = {
+            'request': request,
+            'download_timeout_seconds_configured': int(ytdlp_cfg.get('download_timeout_seconds', self.cfg.get('ytmusic.download_timeout_seconds', 1800))),
+            'duration_ms': actual,
+            'sha256': sha256_file(out),
+            'downloaded_at_source_timeline': True,
+        }
+        tmp_meta = meta.with_name(meta.name + '.tmp')
+        tmp_meta.write_text(json.dumps(request_payload, indent=2) + '\n', encoding='utf-8')
+        tmp_meta.replace(meta)
         return out
 
     def _encode_trim(self,src,dst,duration_ms,codec,trim_start_ms=0):

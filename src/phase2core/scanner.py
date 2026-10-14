@@ -6,10 +6,10 @@ from typing import Any
 from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 
-from .db import Database
-from .json_manager import JSONManager
-from .types import InputPackage, ScanIssue
-from .utils import sha256_file
+from src.phase2core.db import Database
+from src.phase2core.json_manager import JSONManager
+from src.phase2core.types import InputPackage, ScanIssue
+from src.phase2core.utils import sha256_file
 
 
 class Scanner:

@@ -5,7 +5,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-from .types import LRCLine, SourceWord
+from src.phase2core.types import LRCLine, SourceWord
 
 DEFAULT_ABBREVIATIONS = {
     "Sr.": "శ్రీ",

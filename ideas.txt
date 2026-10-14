@@ -1,14 +1,12 @@
-take your time and anlyse the complete zip and remove all the unwanted files from the project zip, like old files or something, analyse all the files without skipping anything
+more improvemtn to consider make it so that i can download all the models before first run with a command and also saperate command for loading the spotify playlist
 
 
 
-make it so that i can download all the models before first run with a command
 
-
-make the database clean, the songs database should only include the song details and the reels should only include song details, analyse current structe and integrate the remaingn things in playlist database
+make the database clean, dont mentions unwanted content, maybe use only one db file the songs database should only include the song details and no reel db, instead of songs db may we can use a json thinmk about it
 
 the json in the songs/final folder should contian all the work done for the song, analyse current pipeline and tell me what to change
-
+ analyse and 
 
 improvments to make:
 1. 8d pipeline

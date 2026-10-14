@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from mutagen.id3 import ID3
 
-from src.mp3_metadata import embed
+from src.audio.mp3_metadata import embed
 
 
 def _metadata(release_date="2007-01-01"):

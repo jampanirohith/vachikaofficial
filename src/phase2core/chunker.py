@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .types import ChunkSpec, LRCLine, LyricDocument
+from src.phase2core.types import ChunkSpec, LRCLine, LyricDocument
 
 
 class Chunker:

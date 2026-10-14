@@ -1,42 +1,749 @@
 {
-  "project": "Unified Spotify Telugu Music Reel",
-  "version": "1.4.28-gpu-hardening",
-  "generated_at_utc": "2026-10-07T04:00:00+00:00",
-  "active_contract": {
-    "playlist_source": "Spotify API, one frozen first-run snapshot",
-    "playlist_order": "exact Spotify playlist order",
-    "ranking": "none",
-    "spotify_metadata": "full Spotify catalog metadata for processing; ISRC is the duplicate key",
-    "audio_acquisition": "Unauthenticated YT Music API search + title/artist/album/duration candidate scoring within Spotify-duration tolerance + yt-dlp selected-URL download + FFmpeg MP3",
-    "downstream": "lyrics -> Demucs -> Telugu alignment -> whole-song 8D -> optional hook deferral -> Reel-only queue resume"
+  "project": "Vachika Official",
+  "package_version": "1.4.30-src-organized",
+  "generated_at_utc": "2026-10-14T09:34:25+00:00",
+  "source_archive": "vachikaofficial-cleaned.zip (reorganized and revalidated)",
+  "package_root": "vachikaofficial-main/",
+  "inventory": {
+    "total_project_files_including_manifest": 120,
+    "checksummed_files_excluding_this_manifest": 119,
+    "python_files_total": 88,
+    "python_files_under_src": 73,
+    "source_lines_under_src": 10607,
+    "file_extensions": {
+      ".example": 2,
+      ".ini": 1,
+      ".json": 2,
+      ".md": 14,
+      ".ps1": 3,
+      ".py": 88,
+      ".sql": 4,
+      ".ttf": 2,
+      ".txt": 2,
+      "[no extension]": 1
+    },
+    "inventory_sha256_excluding_manifest": "f4b33fca7952b7d42fd16d6f5af8287b196b754f624ab14267d3fd716c86956d",
+    "manifest_sha256_note": "The manifest cannot contain its own SHA-256 without a recursive definition; all other packaged files are listed with byte size and SHA-256."
   },
-  "validation": {
-    "unified_tests": "79 passed",
-    "python_compileall": "passed",
-    "playlist_db_integrity": "ok",
-    "songs_db_integrity": "ok",
-    "reels_db_integrity": "ok",
-    "latest_fix": "CUDA-first hardening for HTDemucs, MMS/CTC, Silero VAD and NVENC, including device-aware cache invalidation and runtime provenance.",
-    "live_yt_dlp_network_validation": "not run in build container; outbound package/network access unavailable",
-    "archived_suites": "not re-run in this packaging pass"
+  "source_organization": {
+    "src_root_files": [
+      "src/__init__.py",
+      "src/config.py",
+      "src/README.md"
+    ],
+    "domain_packages": {
+      "src/providers": "Spotify, YT Music and LRCLIB interfaces",
+      "src/audio": "source audio, Demucs, 8D and MP3 metadata",
+      "src/video": "visual selection, synchronization, source video and Reel pipeline",
+      "src/storage": "SQLite repositories, maintenance and final JSON manifest",
+      "src/orchestration": "stage workflow, hooks and recovery",
+      "src/common": "shared hashing, paths, timeouts, GPU and model-cache utilities",
+      "src/diagnostics": "environment diagnostics",
+      "src/alignment": "application adapter to word alignment",
+      "src/phase2core": "active Telugu word-level alignment engine (preserved)",
+      "src/rendercore": "active FFmpeg/ASS audio-video renderer (preserved)",
+      "src/sql": "Phase 2 database schema"
+    },
+    "legacy_root_forwarders": "removed after internal runtime, script and test imports were migrated to canonical package paths"
   },
-  "notes": [
-    "Existing user database state is preserved when updating the code; do not overwrite db/ files unless intentionally migrating.",
-    "yt-dlp downloads only the exact selected URL: the authoritative audio stage receives the selected music.youtube.com URL, while the visual reference stage receives the selected YouTube watch URL. Neither stage is allowed to title-search for a replacement recording."
+  "pipeline_contract": [
+    "Spotify playlist snapshot is the order authority; Spotify supplies catalog metadata, artwork and ISRC only.",
+    "YT Music search selects the recording; yt-dlp downloads only the exact selected music.youtube.com URL.",
+    "LRCLIB synchronized lyrics are screened for Telugu script before expensive downstream alignment.",
+    "Source audio derivatives and selected-video reference audio use content and recipe provenance manifests.",
+    "Demucs retries/device fallbacks use isolated output locations; only validated stems from a successful attempt are promoted.",
+    "The active Telugu word-alignment engine is src/phase2core; repaired word timing is validated before serialization.",
+    "Whole-song 8D processing precedes full-song visual offset confidence checks and absolute-timeline Reel trimming."
   ],
-  "cpu_runtime_policy": "CUDA-primary for PyTorch models and NVIDIA NVENC; automatic CPU fallback when CUDA/NVENC is unavailable or fails.",
-  "tests": "79 passed",
-  "model_cache_policy": "All ML model checkpoints are downloaded to and reused from project models/; per-song temp directories contain transient processing artifacts only.",
-  "tests_passed": 79,
-  "latest_fix": "Unauthenticated YT Music search with strong title/artist/album/duration candidate scoring; no browser.json authentication prerequisite or search fallback.",
-  "test_command": "pytest -q tests/test_*.py",
-  "gpu_runtime_policy": {
-    "torch_device": "cuda",
-    "cuda_device": "cuda:0/default CUDA device",
-    "demucs": "CUDA-first; CPU fallback",
-    "mms_ctc": "CUDA-first; CPU fallback",
-    "silero_vad": "CUDA-first; CPU fallback",
-    "video": "h264_nvenc-first; libx264 fallback",
-    "cpu_only": "network, metadata, SQLite, file I/O, hashing, NumPy/SciPy-oriented audio transforms"
-  }
+  "validation": {
+    "python_version": "3.13.5",
+    "python_compileall": {
+      "status": "passed",
+      "command": "python -m compileall -q main.py src tests scripts"
+    },
+    "pytest": {
+      "status": "passed",
+      "command": "pytest -q",
+      "passed": 110,
+      "failed": 0,
+      "skipped": 0
+    },
+    "static_import_targets": {
+      "status": "passed",
+      "checked": 234,
+      "unresolved": 0,
+      "scope": "main.py, src/, tests/, scripts/"
+    },
+    "cli_help": {
+      "status": "passed",
+      "command": "python main.py --help",
+      "startup_noise": false
+    },
+    "dry_run": {
+      "status": "passed",
+      "network_calls": false,
+      "database_initialization": false,
+      "directory_creation": false,
+      "contract": "read-only when configured playlist DB is absent"
+    },
+    "configuration": {
+      "status": "passed",
+      "files": [
+        "config.json",
+        "config.json.example"
+      ],
+      "both_parse_as_json": true,
+      "files_identical": true
+    },
+    "zip_integrity": {
+      "status": "passed",
+      "command": "ZipFile.testzip() on final archive",
+      "bad_member": null
+    },
+    "manifest_hash_verification": {
+      "status": "passed",
+      "verified_checksums": 119,
+      "mismatches": 0
+    },
+    "fresh_archive_tests": {
+      "status": "passed",
+      "pytest_passed": 110,
+      "compileall": "passed"
+    },
+    "end_to_end_media_pipeline": {
+      "status": "not_run",
+      "reason": "Requires user credentials, live external services, downloaded model weights, representative media and target GPU/NVENC setup."
+    },
+    "ruff": {
+      "status": "not_run",
+      "reason": "Not installed in the build environment; no successful run is claimed."
+    },
+    "mypy": {
+      "status": "not_run",
+      "reason": "Not installed in the build environment; no successful run is claimed."
+    }
+  },
+  "retired_obsolete_paths": [
+    "src/artwork.py",
+    "src/downloader.py",
+    "src/errors.py",
+    "src/playlist_ingest.py",
+    "src/spotify_isrc.py",
+    "src/spotify_overlay.py",
+    "src/phase2core/doctor.py",
+    "src/phase2core/recovery.py",
+    "tests/test_ytm_playlist_ingestion.py",
+    "scripts/setup_ytmusic_auth.py",
+    "scripts/setup_ytmusic_auth.ps1",
+    "docs/YTMUSIC_AUTH_WINDOWS.md",
+    "docs/PROJECT_PLAN_ORIGINAL.md",
+    "docs/initial_complete_plan.md",
+    "ideas.txt"
+  ],
+  "runtime_data_excluded": [
+    "Spotify token and private credentials",
+    "browser cookies",
+    "SQLite databases",
+    "downloaded model weights",
+    "generated song/8D/Reel artifacts",
+    "live hook queue",
+    "Python bytecode and test caches"
+  ],
+  "checksummed_files": [
+    {
+      "path": ".gitignore",
+      "size_bytes": 502,
+      "sha256": "6faa3342f9c9f605a3e2c143a7ba0d85bfd417cca124c40a86639f0f8f544622"
+    },
+    {
+      "path": "assets/fonts/BalooTammudu2-ExtraBold.ttf",
+      "size_bytes": 761408,
+      "sha256": "8be1fd2e894bfbb8f725159456827fb3988b9ec84edc0518506bd964246443ad"
+    },
+    {
+      "path": "assets/fonts/Suravaram-Regular.ttf",
+      "size_bytes": 263472,
+      "sha256": "06cd3eec9f6b727415bea41d09cbdd290e2504590775d457f4acf83a2078c415"
+    },
+    {
+      "path": "config.json",
+      "size_bytes": 5273,
+      "sha256": "2a185d5b13ab767dd06f84ef5f09863ba514277ed4942bd96f24d2e8736fb9f8"
+    },
+    {
+      "path": "config.json.example",
+      "size_bytes": 5273,
+      "sha256": "2a185d5b13ab767dd06f84ef5f09863ba514277ed4942bd96f24d2e8736fb9f8"
+    },
+    {
+      "path": "cookies.txt.example",
+      "size_bytes": 177,
+      "sha256": "4a8a024bce02a9b805f0b1fb34a81357b6c73da5a1415ac6c0e6bb1242553cea"
+    },
+    {
+      "path": "database/playlist_schema.sql",
+      "size_bytes": 2918,
+      "sha256": "7930f1cf937af54892d93cd1bbe7193c7283edcdf735f30f3f420df05362ea48"
+    },
+    {
+      "path": "database/reels_schema.sql",
+      "size_bytes": 5025,
+      "sha256": "bba613a7480e0608e6b747f6c60dfc9419ccd3eeb0a1e3562188c979c273906f"
+    },
+    {
+      "path": "database/songs_schema.sql",
+      "size_bytes": 9787,
+      "sha256": "6ad10ecb2bb907365b4ca2e83dc3b8fafec42e96ea6b5cda6c14c5bbd5c1e988"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "size_bytes": 4932,
+      "sha256": "30226dfaa723da904152e7209b07ee6cf93807b1c3f40089181fff43d04b0dbc"
+    },
+    {
+      "path": "docs/BUILD_INFO.md",
+      "size_bytes": 2255,
+      "sha256": "424e6c09a4223dd01815e8350defda3bac2904ba40264c77a7ad3c132faff26a"
+    },
+    {
+      "path": "docs/CHANGELOG.md",
+      "size_bytes": 17629,
+      "sha256": "ebdb1cd0ad4f02c6015a8e042dc6815eff07c6ecf73a650126e34d388d3fb25b"
+    },
+    {
+      "path": "docs/CONFIGURATION.md",
+      "size_bytes": 3578,
+      "sha256": "8be11b0dd9e83f250d7ed19ec057e94525e2fdbf0c7f8678e3b8f0624529b6ef"
+    },
+    {
+      "path": "docs/FULL_PROJECT_AUDIT.md",
+      "size_bytes": 11188,
+      "sha256": "1e57e1ff11e96bd75bbb395482bbfcbfac038e23a1c50ff3dd4d6818e66fe6ab"
+    },
+    {
+      "path": "docs/GPU_CUDA_AUDIT.md",
+      "size_bytes": 1310,
+      "sha256": "73503127a194e8fd8743fb67869b922f18fb10fbc1bca2740051260e61ad2877"
+    },
+    {
+      "path": "docs/HISTORICAL_PRE_REPAIR_AUDIT.md",
+      "size_bytes": 69428,
+      "sha256": "fec452d6a30e9759f67aa4b8c4e93e391395748c0e9e6355bfa7492993adbcc1"
+    },
+    {
+      "path": "docs/PROJECT_PLAN.md",
+      "size_bytes": 3167,
+      "sha256": "f4a96efe415b48ac2435e56209ff4ce7ef45ccd1a35faf7c82f4cbcbd4e2dd27"
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "size_bytes": 2077,
+      "sha256": "0c6e4665e1c84c82c58fec97c3579a1501d616a5a7df7cbce7c185873e642bc1"
+    },
+    {
+      "path": "docs/SOURCE_INPUTS.md",
+      "size_bytes": 986,
+      "sha256": "b8016c3f10bc09caf34b3c5da93eec6f29217a2e1e56117cf3eba3bdf71d01b5"
+    },
+    {
+      "path": "main.py",
+      "size_bytes": 20567,
+      "sha256": "ed559db94fd78ca3a0192938e90ba32f7ba91bd954488a5886eeb812697ebbb6"
+    },
+    {
+      "path": "models/README.md",
+      "size_bytes": 726,
+      "sha256": "4571d733262979785e8c11d6254ef89013c0d967bcd5796bbe4a4420942782e6"
+    },
+    {
+      "path": "PROJECT_PLAN.md",
+      "size_bytes": 3167,
+      "sha256": "f4a96efe415b48ac2435e56209ff4ce7ef45ccd1a35faf7c82f4cbcbd4e2dd27"
+    },
+    {
+      "path": "pytest.ini",
+      "size_bytes": 42,
+      "sha256": "6c6ccf864e8f2d2e0223ee8e39bfde660c12435aa37d81e2b14000a6bee15003"
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 6821,
+      "sha256": "df24e03663b93f0fa86d843512bd504144dbdf2d902409214a67723c005d67f3"
+    },
+    {
+      "path": "requirements-dev.txt",
+      "size_bytes": 47,
+      "sha256": "87aee33e9bfc1ea84c61ecf887f5730eb56539accf6767dfc674aaea2c612f50"
+    },
+    {
+      "path": "requirements.txt",
+      "size_bytes": 484,
+      "sha256": "ab709085309a8edfc2699b1773ceadb6411174381f0fffaf11bf2e70c6581a27"
+    },
+    {
+      "path": "schemas/unified_song_master_v2.schema.json",
+      "size_bytes": 2569,
+      "sha256": "bc3c4a7aeac49ac7126989d9fff2720bc3f4bd926845a68df8697c30b69d5bb8"
+    },
+    {
+      "path": "scripts/install_windows_cuda.ps1",
+      "size_bytes": 1359,
+      "sha256": "1b8756079f315a969d7a9d14b8326b58a38578a03fddc33aa8686b28332f3ae1"
+    },
+    {
+      "path": "scripts/run.ps1",
+      "size_bytes": 123,
+      "sha256": "28e2f30ae6ec0faa324a9ed7b79d839df30f4fee969361efd6406439815963bd"
+    },
+    {
+      "path": "scripts/setup_spotify_auth.py",
+      "size_bytes": 1180,
+      "sha256": "c8fbb72d8673ccfb5aa554d3a6f5c9c5a20d02c9caf33373a69c792a90e40fce"
+    },
+    {
+      "path": "scripts/verify_windows_gpu.ps1",
+      "size_bytes": 450,
+      "sha256": "871196bb413cb20e4b7c7716469b49230bd985d7a57cde4acf88ef68abf576c7"
+    },
+    {
+      "path": "src/__init__.py",
+      "size_bytes": 28,
+      "sha256": "67c2cacfbe706f8175d2c6a78b0fdf16fbde4de7155944fb5de2e7365eee2b21"
+    },
+    {
+      "path": "src/alignment/__init__.py",
+      "size_bytes": 129,
+      "sha256": "448bf2baa404f4899d089e76a9fb619a725599028d85a8b3907d51f8aa3bf26f"
+    },
+    {
+      "path": "src/alignment/adapter.py",
+      "size_bytes": 2513,
+      "sha256": "7258018c5ed76d5353b1408d5f0b5fe3aff5c06806584fa3cb9e9e75a192b9eb"
+    },
+    {
+      "path": "src/audio/__init__.py",
+      "size_bytes": 76,
+      "sha256": "18101b6af4e4803f602d2e122d5b111d91a17214655b2314331b6f3018466db4"
+    },
+    {
+      "path": "src/audio/demucs.py",
+      "size_bytes": 10251,
+      "sha256": "443defe5db30ae760071b3c226e954eb933d59359eee3bf0e54a2baa347885a5"
+    },
+    {
+      "path": "src/audio/eightd.py",
+      "size_bytes": 5583,
+      "sha256": "f72e37bc41fc7ba791a7b4b7f4803bdc0fa2c3b9657d0183cdd9c94fdc7639a7"
+    },
+    {
+      "path": "src/audio/mp3_metadata.py",
+      "size_bytes": 3286,
+      "sha256": "8a9eebc31fef845993c75b3b7ede05ffe1d6e75c170e800c77ec5f8bf488353f"
+    },
+    {
+      "path": "src/audio/source_audio.py",
+      "size_bytes": 7177,
+      "sha256": "991c01b772cfde04d4be1d83188e33fa267827eeac9ffdbf2c05f5733c7a03cf"
+    },
+    {
+      "path": "src/common/__init__.py",
+      "size_bytes": 79,
+      "sha256": "ae30121b6756829baddedf24e772039c625c700ec26619c520aefb7e7376a4a1"
+    },
+    {
+      "path": "src/common/gpu.py",
+      "size_bytes": 1844,
+      "sha256": "3badd49b3c81d6ae43ce68e141840be7e3cc5470e1c29eebdaedf3494b301793"
+    },
+    {
+      "path": "src/common/hashing.py",
+      "size_bytes": 380,
+      "sha256": "b944c2673b0eae8a0b16be7361556cb69df20fafa76208d09da1957b4ea1cc9a"
+    },
+    {
+      "path": "src/common/http_utils.py",
+      "size_bytes": 745,
+      "sha256": "89a4fea28ca5cd3eb50a4c378070d3e2d06aff4769347404ee51edfe57cd5440"
+    },
+    {
+      "path": "src/common/metadata.py",
+      "size_bytes": 18872,
+      "sha256": "8de99534f9bdb4218917025dab17496a2e61741195b9183b81d62529d1fc410f"
+    },
+    {
+      "path": "src/common/model_cache.py",
+      "size_bytes": 4501,
+      "sha256": "ee99c6a040502be454a3005d57fc328ac5c062aec3c22a720284fa3e7880bf71"
+    },
+    {
+      "path": "src/common/paths.py",
+      "size_bytes": 831,
+      "sha256": "7498e8484e7b051ea73bd53b900a70f22236773fa8acf0de936480b107bd7461"
+    },
+    {
+      "path": "src/common/utils.py",
+      "size_bytes": 1539,
+      "sha256": "0d08a86212a8de9007e8d17eb1940661b2249e6f1abecd9565d175d08622970a"
+    },
+    {
+      "path": "src/common/ytdlp_utils.py",
+      "size_bytes": 990,
+      "sha256": "1b1ce4e86520438f2b01e5042ddb192e88404fb82bd8abe6869261e614127924"
+    },
+    {
+      "path": "src/config.py",
+      "size_bytes": 5617,
+      "sha256": "1d980ab1649381774a8b967f4f3245876f8db4554ab2c2b5af1f469c39c00eb4"
+    },
+    {
+      "path": "src/diagnostics/__init__.py",
+      "size_bytes": 51,
+      "sha256": "b4e76c0177f0bb946f869a79d0881812261431d658b8e835236248e68e49e9fb"
+    },
+    {
+      "path": "src/diagnostics/doctor.py",
+      "size_bytes": 3142,
+      "sha256": "0bec06d6343d71699c047175a83d8424b1006745ad2a0ecafb0b6b50dfc005df"
+    },
+    {
+      "path": "src/orchestration/__init__.py",
+      "size_bytes": 65,
+      "sha256": "51122fadedef53d7d0ff95e6dcf2946115a621256755bcbe15704c8aef769241"
+    },
+    {
+      "path": "src/orchestration/hook.py",
+      "size_bytes": 674,
+      "sha256": "a377b3ca5b0922896908c568d5be39b2c7950d1a6d3c27325074a91a74394f5f"
+    },
+    {
+      "path": "src/orchestration/pipeline.py",
+      "size_bytes": 83780,
+      "sha256": "85d95bd3dfafd5c1a22eecd63fb5bfecf8005a128579416e93b650e9db338771"
+    },
+    {
+      "path": "src/orchestration/recovery.py",
+      "size_bytes": 3642,
+      "sha256": "49e3876488b76930f115da3a0ba3cffc224cba189d031c4ee3c6b341ab95526e"
+    },
+    {
+      "path": "src/phase2core/__init__.py",
+      "size_bytes": 35,
+      "sha256": "549d920d1bb8cb174fa5550ed1caed67859f4cfe8804d0f5d86ddf75992d676c"
+    },
+    {
+      "path": "src/phase2core/activity_detector.py",
+      "size_bytes": 5950,
+      "sha256": "00f31040b6d3a471b9db29f05232884514846a671c82fc5db96b00a273e85974"
+    },
+    {
+      "path": "src/phase2core/audio.py",
+      "size_bytes": 3412,
+      "sha256": "2f424928c8a102fe1940b6a4e25b2c29832167a3580998eb6bad47743905585a"
+    },
+    {
+      "path": "src/phase2core/chunker.py",
+      "size_bytes": 5538,
+      "sha256": "890251353213021302112f32ace12bbf78cda15e4c5b274620ecc389f510f8ae"
+    },
+    {
+      "path": "src/phase2core/config.py",
+      "size_bytes": 2100,
+      "sha256": "9705adb08821412e7bfb1a0126aa6cdea520844fd94d4255c896af4a545abc54"
+    },
+    {
+      "path": "src/phase2core/ctc_aligner.py",
+      "size_bytes": 4647,
+      "sha256": "9188e1a923dc4778667d220b68cf1dcffa54a10d63d2d661049a1363177c4530"
+    },
+    {
+      "path": "src/phase2core/db.py",
+      "size_bytes": 8914,
+      "sha256": "483c60b8da7caca358fd4d01b3083733ead0e11d0b23cb8ad158e0dba21b7447"
+    },
+    {
+      "path": "src/phase2core/demucs_isolator.py",
+      "size_bytes": 7586,
+      "sha256": "9ff4c7fbb0be19faf053ee20cefe1595facf0bfebc31a4718946431eb24d59b2"
+    },
+    {
+      "path": "src/phase2core/embedder.py",
+      "size_bytes": 4078,
+      "sha256": "bf7df9ccd13475778ffe4e64c7b0475329ad6e0adc2ebb33cd922a668430583c"
+    },
+    {
+      "path": "src/phase2core/json_manager.py",
+      "size_bytes": 2749,
+      "sha256": "fc8d50dfd14d37869e7cf9b354fb8942fa15177f927d159a7d1be58d1c9e2b5c"
+    },
+    {
+      "path": "src/phase2core/json_updater.py",
+      "size_bytes": 5390,
+      "sha256": "a8305b8520c0730f6d240f4cffcf0f5890594144cf2f0941f058d49d1815ea69"
+    },
+    {
+      "path": "src/phase2core/lrc_generator.py",
+      "size_bytes": 6794,
+      "sha256": "99d9b7c9b4dc19fd8f027be67d6bd5b3cd1d2ee8573da01ca7f87c04470465b5"
+    },
+    {
+      "path": "src/phase2core/lrc_reader.py",
+      "size_bytes": 3794,
+      "sha256": "4e56cf1092e5f68497817f3a0045be5621a71569141405966829806a2b30b945"
+    },
+    {
+      "path": "src/phase2core/merger.py",
+      "size_bytes": 21511,
+      "sha256": "482252792b5a2012f3e6b39eda924cdff0b971f535e807af70b1f39b22d9b088"
+    },
+    {
+      "path": "src/phase2core/mms_model.py",
+      "size_bytes": 6798,
+      "sha256": "404963232527eb88e2d9acf3dd2d8c1304fa4dcd2df684c553d44ec7792ba46c"
+    },
+    {
+      "path": "src/phase2core/pipeline.py",
+      "size_bytes": 62689,
+      "sha256": "5811fc6e50e7aebe545e7353813dd273a015c2571f4c145b9c413daa3e29cca3"
+    },
+    {
+      "path": "src/phase2core/scanner.py",
+      "size_bytes": 5489,
+      "sha256": "154fc9aa435653ec78a497136550af6b3961f2e41029a8ae0899b281a2840811"
+    },
+    {
+      "path": "src/phase2core/telugu_normalizer.py",
+      "size_bytes": 4936,
+      "sha256": "9038c6687150212bfeaace4e1579ecda9bf10aa0e47b1b742dea4fd6f32d5f4f"
+    },
+    {
+      "path": "src/phase2core/tokenizer.py",
+      "size_bytes": 1946,
+      "sha256": "04e2a635645bbc7c5c914ae5878c2b6e48b9314c3ed271eafe4c1fd98bde277f"
+    },
+    {
+      "path": "src/phase2core/types.py",
+      "size_bytes": 4442,
+      "sha256": "57676b9dc5c51a2e87abeb73f9d2e0a27b58841556e014997b2f82f29e90dd02"
+    },
+    {
+      "path": "src/phase2core/utils.py",
+      "size_bytes": 4860,
+      "sha256": "e07c0c0a516f46d8a807ad2ce519901ee43db458e9044d2f2242dcf864b645e2"
+    },
+    {
+      "path": "src/phase2core/validator.py",
+      "size_bytes": 8007,
+      "sha256": "a007bdb8dbc92517cbf2966c745c1da5d79c1b003785040dc513d62c267ad117"
+    },
+    {
+      "path": "src/phase2core/word_builder.py",
+      "size_bytes": 3022,
+      "sha256": "d399b6573c2a2071ca566b55a3e1ea05c329c0f4175564085ace3cf9eabbeb9a"
+    },
+    {
+      "path": "src/providers/__init__.py",
+      "size_bytes": 74,
+      "sha256": "49968ad40265945b2c3d2944ab6fed73fa9176abcb49086488c1b095dcd54b31"
+    },
+    {
+      "path": "src/providers/acquisition.py",
+      "size_bytes": 10014,
+      "sha256": "bc0218b6eeb148c195b880c5fa9e5e72c5ba1d383139bb527bc2cd00838b582c"
+    },
+    {
+      "path": "src/providers/lrclib.py",
+      "size_bytes": 10216,
+      "sha256": "b4ef576d5e106a55f7a7f382df26c18cc6be8ef8d37e0e4d4a579144dd326082"
+    },
+    {
+      "path": "src/providers/spotify.py",
+      "size_bytes": 24973,
+      "sha256": "52df7bee07f5b2d1fd5da26212a63f404e37678c3bc8b48c70f01b05324f1c30"
+    },
+    {
+      "path": "src/providers/spotify_auth.py",
+      "size_bytes": 5956,
+      "sha256": "34d0199fee8898ac03bbe62d8134a980b2557fa05f652def285425facfa359c8"
+    },
+    {
+      "path": "src/providers/spotify_playlist.py",
+      "size_bytes": 3814,
+      "sha256": "3a5d86b78a7d2cf21863f4b1cf1f4afecf68ebbe1c4806ea4cf52d21bca9f98c"
+    },
+    {
+      "path": "src/providers/ytm_media.py",
+      "size_bytes": 13524,
+      "sha256": "d1de320bdd3c5cc66bcee8bbcd3670181da5db2e15bbf98e3ea78dbe2c20477f"
+    },
+    {
+      "path": "src/README.md",
+      "size_bytes": 3744,
+      "sha256": "e20f18b9782846da6f2bdeb118df013223746d0234ca54a473a07f95c74a01f1"
+    },
+    {
+      "path": "src/rendercore/__init__.py",
+      "size_bytes": 36,
+      "sha256": "a8596c4049b10d3148fd0240a9c76ff939e4e7377117d66d211c02a72e042f68"
+    },
+    {
+      "path": "src/rendercore/ass_generator.py",
+      "size_bytes": 10573,
+      "sha256": "690d5d97f04bc78426024c876a3bb5e9fd9cbeb7b6c3d85cbca3754aaa5624bf"
+    },
+    {
+      "path": "src/rendercore/assembler.py",
+      "size_bytes": 1921,
+      "sha256": "d0412aecd0d9c3d216261c01a5ca8a3c1ba560ed5324fdc9ccf5a52c5dab318a"
+    },
+    {
+      "path": "src/rendercore/audio_io.py",
+      "size_bytes": 3827,
+      "sha256": "5c9a55ab4b1282683f8217e2d4b6050a6f4f7995fd026eb20b49a343ab05836d"
+    },
+    {
+      "path": "src/rendercore/font_manager.py",
+      "size_bytes": 7907,
+      "sha256": "842508156e844aee0bd0333cdcd664432e76ed10169e508f805a74037582eed0"
+    },
+    {
+      "path": "src/rendercore/utils.py",
+      "size_bytes": 6295,
+      "sha256": "8c17a3f68e15bb49d418f784056ec9b00eeb5143b2da248ed779b01545424c90"
+    },
+    {
+      "path": "src/rendercore/video_grabber.py",
+      "size_bytes": 6914,
+      "sha256": "4cf878782860a67576b639b32f8598c4217666daa0aaf593e2669cd868e291da"
+    },
+    {
+      "path": "src/rendercore/video_renderer.py",
+      "size_bytes": 2847,
+      "sha256": "3460e5d4fbe481528796fee5d6e2b0a3d6e5f48ea9b50dc098a124151ad47c54"
+    },
+    {
+      "path": "src/sql/001_initial.sql",
+      "size_bytes": 4883,
+      "sha256": "d86d7abcdbfb0085c277a8816c432fff710c66b2f0dc6dd7977d660935679a81"
+    },
+    {
+      "path": "src/storage/__init__.py",
+      "size_bytes": 75,
+      "sha256": "1f8d8ba10824a37e2fe006218cd2ee6abd3162a49485f8cbcd2cdce13d0b6e84"
+    },
+    {
+      "path": "src/storage/json_record.py",
+      "size_bytes": 9385,
+      "sha256": "847db252f0cffb94478af3e813624e28404e9c0bb1649c7c1809cdaaf0be04d7"
+    },
+    {
+      "path": "src/storage/maintenance.py",
+      "size_bytes": 5225,
+      "sha256": "e8c9aa770c560cd07c1d2ac3d09ecc6adf84818d8781b0da969d36abf45db825"
+    },
+    {
+      "path": "src/storage/playlist_db.py",
+      "size_bytes": 9777,
+      "sha256": "64eb71710b6f277574e740696d7df4a1fcd5168c9e9cd97cecba8dd7657cb41b"
+    },
+    {
+      "path": "src/storage/reel_db.py",
+      "size_bytes": 3095,
+      "sha256": "17fa6e490b960cc9e4714c15464a51b9ba1faebfb77d179d80bd8185150234a8"
+    },
+    {
+      "path": "src/storage/song_db.py",
+      "size_bytes": 13618,
+      "sha256": "9b7628be87c917d204b8c3e7f1186cd239c5d9d1c55e925b59220aae52d016fe"
+    },
+    {
+      "path": "src/video/__init__.py",
+      "size_bytes": 75,
+      "sha256": "9b53e2f7c660b3c6842154f6aa8068f25fd6fc033a164fbd61387a609abce39b"
+    },
+    {
+      "path": "src/video/reel.py",
+      "size_bytes": 7577,
+      "sha256": "c64a353e1dd76adcb43e854cead887cd8f8b2135610d7cf0d014a20a3f4d8bf5"
+    },
+    {
+      "path": "src/video/selection.py",
+      "size_bytes": 4097,
+      "sha256": "d2694291382c7b5bfd4e87db301d3cc1279950272f45325553070a5b8c2274c4"
+    },
+    {
+      "path": "src/video/synchronization.py",
+      "size_bytes": 7388,
+      "sha256": "566ab76ba2a59849c55a71493029bec02307667f0352909432d5bf08a117e785"
+    },
+    {
+      "path": "src/video/youtube_source.py",
+      "size_bytes": 6236,
+      "sha256": "072b945c69ef09f89891ab4d0b9848aff6f93e6c30ea12e23558ca05b86121cc"
+    },
+    {
+      "path": "tests/test_acquisition_config_contract.py",
+      "size_bytes": 8974,
+      "sha256": "9e10c8f08742834861b3a6cc3a3b4169e1096dbc56c269820799c963eacbc428"
+    },
+    {
+      "path": "tests/test_ffmpeg_windows_fix.py",
+      "size_bytes": 1544,
+      "sha256": "4c7a385fa8ac1773d4f83f7b3677eaeb0d77ea4f9fee750454ff0917557ca1fa"
+    },
+    {
+      "path": "tests/test_foreign_key_lifecycle.py",
+      "size_bytes": 4764,
+      "sha256": "f4d7cd34c4c967284b81fa736b37de274537aef62dc668d931a45dbf99191fda"
+    },
+    {
+      "path": "tests/test_lyric_word_fade.py",
+      "size_bytes": 2420,
+      "sha256": "e9b43dcbb6cc4f561364ace72920d7d578568433a34e613fcac4c7a5d2454c70"
+    },
+    {
+      "path": "tests/test_mp3_metadata.py",
+      "size_bytes": 1661,
+      "sha256": "8f44d225aac691d76be91b442684a0f0543953133fa48d8478eb3c3b68322a84"
+    },
+    {
+      "path": "tests/test_offset_contract.py",
+      "size_bytes": 1279,
+      "sha256": "89b6ef820e2afc208f7e56039de14d652cc23eae7ff62ad3c558d72549e32a72"
+    },
+    {
+      "path": "tests/test_project_regressions.py",
+      "size_bytes": 25344,
+      "sha256": "c8c78472473d6d3b7890fa844276b6957edbfdfe54dd07dae0905ec4d5196429"
+    },
+    {
+      "path": "tests/test_spotify_api_contract.py",
+      "size_bytes": 3298,
+      "sha256": "f114b35f301f94271fba2e09e4878956d69696c1cf0fdee20c08ab328fdee93b"
+    },
+    {
+      "path": "tests/test_spotify_isrc_only.py",
+      "size_bytes": 715,
+      "sha256": "95bb6b5cb5859f2b6062af1b335ea2528dce352a289a7987fb1131df9ff7d719"
+    },
+    {
+      "path": "tests/test_unified_cli_contracts.py",
+      "size_bytes": 2862,
+      "sha256": "c1115136462d5ea462a7396280efc284583b22a6c283bf9e53bdb2829565b9c8"
+    },
+    {
+      "path": "tests/test_unified_contracts.py",
+      "size_bytes": 1740,
+      "sha256": "ad55854bf43714edf928615e58be41368dcb8ce0fc13af45c662e287a2f594af"
+    },
+    {
+      "path": "tests/test_unified_runtime_contracts.py",
+      "size_bytes": 21182,
+      "sha256": "0a952899db89ab413c89bbf0880e8ddef29665f89c87e6ac3bc8aa818eaa3726"
+    },
+    {
+      "path": "tests/test_v148_selection_and_lyrics.py",
+      "size_bytes": 5576,
+      "sha256": "0ff1806750de2212669d8c3fa5a4ecedcdfbf2bde2262ccbeec9ab3546cef276"
+    }
+  ]
 }

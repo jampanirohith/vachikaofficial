@@ -1,120 +1,26 @@
-# Build information — Unified Spotify-first CUDA-first release
+# Build and validation record
 
-## Release 1.4.28 GPU hardening
+**Package version:** `1.4.30-src-organized`
 
-- Made HTDemucs explicitly CUDA-first and added device-aware stem-cache validation. CPU-created stems are automatically rebuilt when a CUDA-capable runtime becomes available.
-- Made Telugu MMS/CTC alignment explicitly CUDA-first through the configured PyTorch device, with runtime/device provenance recorded in the final Phase-2 metadata.
-- Moved Silero VAD model and input tensors to CUDA when available, with safe CPU fallback and device-aware activity-cache reuse.
-- Kept NVIDIA NVENC as the preferred video encoder with runtime FFmpeg encoder detection and CPU `libx264` fallback.
-- Added centralized PyTorch CUDA detection/resolution in `src/gpu.py`.
-- Pinned CUDA PyTorch wheels remain the project installation contract (`torch==2.9.1+cu128`, `torchaudio==2.9.1+cu128`).
-- Active validation: 74 tests passed; Python compileall passed.
-- Build-container hardware check: PyTorch is `2.10.0+cpu`, `torch.cuda.is_available()` is false, and `nvidia-smi` is unavailable here, so a physical NVIDIA runtime test could not be performed in this packaging environment.
+This is the complete replacement source tree. Active application code is grouped into domain packages under `src/`; the Telugu word-alignment engine (`src/phase2core/`) and media-rendering engine (`src/rendercore/`) remain intact. The archive includes configuration templates, SQL schemas, fonts, tests, setup scripts and current/historical documentation. It excludes credentials, cookies, databases, model checkpoints, generated media, hook-queue state, bytecode and test caches.
 
+## Reproducible checks
 
-## Build
+From the extracted project root:
 
-Version: `1.4.28-gpu-hardening`
+```powershell
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+python main.py --doctor
+python main.py --prepare-models
+python -m compileall -q main.py src tests scripts
+pytest -q
+```
 
-This build integrates the supplied Phase 1, Phase 2, and Phase 3 projects under the current Spotify-first unified contract.
+The release suite contains **110 passing tests**. Python compilation passed for `main.py`, `src/`, `tests/`, and `scripts/`. The static import-target audit checked **234 application/test/script import targets** with no unresolved `src.*` import targets. Both `config.json` and `config.json.example` parse as JSON and are byte-for-byte identical safe templates. CLI help completed without startup noise. The read-only dry-run contract is covered by regression tests: with no database present, it does not initialize a database, make network calls, or create the database directory.
 
+`docs/BUILD_MANIFEST.json` inventories the release files and records their SHA-256 digests (excluding the manifest itself to avoid a recursive checksum). Its validation section records the measured local checks and the unavailable external checks.
 
-## Release 1.4.18 fix
+## Checks not represented as passed
 
-- Fixed a second whole-song 8D frame-alignment bug in the lyric-density gain timeline.
-- The density timeline now uses ceiling block count so the generated gain vector always covers the full canonical audio frame count, including non-block-aligned songs.
-- Added regression coverage for the exact non-block-aligned frame-count failure observed at runtime.
-
-## Release 1.4.17 fix
-
-- Fixed whole-song 8D rendering when Demucs stems contain small frame-count differences after decoding/resampling.
-- Canonicalized the shortest valid stem frame count and cropped **every** stem, including drums, before mixing.
-- Added regression coverage for unequal stem lengths and the exact drums mixing path that previously caused NumPy broadcasting failure.
-- Verified the complete active test suite after the fix.
-
-## Release 1.4.25 fix
-
-- Fixed fresh-run `HOOK_QUEUE_SOURCE_MISSING` crashes caused by tracking `songs/final/hook_queue.json` while generated `songs/final` media artifacts remain ignored.
-- A queue entry is now considered stale when its persisted MP3/LRC/word-level LRC/8D/JSON source package is absent. The entry is marked `stale` with `SOURCE_PACKAGE_MISSING`, then normal pipeline processing resumes.
-- This keeps the durable hook queue architecture while making it safe across clean checkouts, cloned repositories, and deleted generated output.
-- Unified active tests: 72 passed.
-
-## Active behavioral contract
-
-- Spotify is the sole playlist/source-of-entry authority.
-- The first normal run for a new playlist ID performs exactly one complete Spotify Web API playlist snapshot, atomically records every playlist entry in exact Spotify order in `playlist.db`, prints completion, and exits.
-- The first run performs no per-track Spotify detail calls, no Spotify artwork download, no YT Music search/media, no lyrics, no Demucs, no MMS/CTC, no 8D, no hook prompt, no visual-video search, no offset matching, and no Reel rendering.
-- Later runs never re-fetch an existing playlist ID; they process the frozen snapshot one song at a time in ascending stored playlist position.
-- There is no active playlist view-count, play-count, popularity, engagement, or ranking logic.
-- Spotify supplies the complete per-song track/album/artist catalog payload, raw catalog JSON, exact album artwork bytes, and canonical ISRC.
-- Spotify audio is never downloaded.
-- ISRC is the canonical duplicate identifier. Duplicate lookup is limited to finalized prior songs and never to in-progress songs.
-- YT Music is media-only. Search uses `title + album`, and the first result whose known duration is within the configured Spotify-duration tolerance is selected.
-- YT Music media discovery uses `ytmusicapi.search(title + album)` and closest Spotify-duration selection; the selected `music.youtube.com` URL is handed to yt-dlp for high-quality audio download and FFmpeg MP3 conversion. yt-dlp is never used for search.
-- Demucs is run once per source version and shared by alignment and whole-song 8D.
-- Whole-song 8D covers the complete original song and is persisted to `songs/final` before hook selection.
-- YouTube visual-video selection is performed exactly once per song; the first non-lyrics result from `title + album + video song hd` is persisted and its exact `youtube.com/watch?v=...` URL is reused for reference-audio download, offset matching, and Reel rendering. Hook selection never performs another visual search.
-- Hook timing is manual terminal input and persisted in integer milliseconds.
-- Final song/Reel promotion is gated by validation and performed safely.
-- SQLite persistence converts Windows `Path` objects to strings before binding.
-- Historical Phase 1/2/3 source trees and plans remain archived for provenance and are not active runtime authority.
-
-## Release 1.4.16 fix
-
-- Fixed the unified pipeline calling `SongsDB.set_lyrics_words(...)` without the method existing in the active SongsDB implementation.
-- Added an atomic, idempotent SongsDB persistence method for `lyric_lines` and `lyric_words`, including line/word foreign-key linkage and alignment-run replacement on retry/cache reuse.
-- Added an AST contract test that verifies every `songs_db.<method>()` call in `src/pipeline.py` exists on `SongsDB`.
-- Added an end-to-end SQLite regression test for alignment lyric-line/word persistence.
-- Verified the complete active test suite after the fix.
-
-## Release 1.4.15 fix
-
-- All ML model downloads now use one project-persistent `models/` cache shared across the entire playlist. Per-song alignment temp directories no longer own a model cache.
-- Hugging Face MMS assets use `models/huggingface/hub/`; PyTorch/Demucs checkpoints use `models/torch/`; auxiliary torch cache uses `models/cache/`.
-- The cache environment is propagated to Demucs subprocesses and initialized before Phase-2 VAD/MMS model loading.
-- Added regression coverage for persistent model-cache routing and Demucs cache propagation.
-
-## Release 1.4.14 fix
-
-- Phase-2 alignment database initialization now has a packaged runtime schema at `src/sql/001_initial.sql`, with an archived-schema fallback and explicit missing-resource diagnostics.
-
-## Field defects incorporated
-
-- Missing `playlist_snapshot()` logger argument.
-- Recovery import ordering on `--reconcile`.
-- Passing a plain dictionary instead of the full `Config` object to acquisition.
-- SQLite `WindowsPath` binding failure after a successful media download.
-- Cryptic old YT Music playlist parser/authentication failure is no longer relevant because Spotify owns playlist ingestion.
-- Obsolete playlist popularity/count lookup path removed completely from the active runtime.
-- First-run snapshot is committed before downstream song/Reel databases are initialized.
-- YT Music direct-stream acquisition rejects unknown-duration search results instead of accepting an unverified match.
-- ISRC duplicate comparisons normalize ISRC formatting before lookup.
-- Windows FFmpeg explicit WAV-container handling retained.
-- Demucs cache/stage identity and SQLite child-row replacement safety retained.
-
-## Validation
-
-- Unified active tests: 58 passed after the alignment SongsDB API fix.
-- Archived Phase 1/2/3 suites are retained in `archives/`; they were not re-executed in this packaging pass.
-- Python compilation: passed.
-- `playlist.db`, `songs.db`, `reels.db`: SQLite integrity `ok`, user version `400`.
-- Active requirements include yt-dlp for audio acquisition only.
-
-## Production boundary
-
-The packaging environment is not a Windows/CUDA/online production runner. No real Spotify, YT Music, LRCLIB, Hugging Face, CUDA, NVENC, or full media execution is claimed here. Run `python main.py --doctor` on the target Windows machine before production processing.
-
-Release 1.4.3-final: Spotify-first playlist snapshot architecture locked; historical direct-stream wording is superseded by the 1.4.5+ selected-URL yt-dlp contract.
-
-
-Release 1.4.3 regression fix: SongsDB parent-row bootstrap now occurs before any stage_runs or audit_events insert, preventing SQLite FOREIGN KEY failures when Spotify metadata acquisition fails. Required bootstrap fields are normalized in one connection for Windows-safe SQLite behavior.
-
-Release 1.4.4: fixed NULL duration bootstrap and hardened SQLite parent/child lifecycle.
-
-Release 1.4.5: YT Music search remains ytmusicapi-only; actual audio acquisition now uses yt-dlp on the selected YT Music URL with best-available audio and 320 kbps MP3 post-processing, with optional authenticated browser/cookie support.
-
-- LRCLIB exact `/api/get` lookup is followed by `/api/search` fallback for synced lyrics; lyrics are fetched before visual-video acquisition so available LRC is not lost behind a later video-stage failure.
-
-
-## 1.4.19 final fix
-The 8D renderer no longer shadows the imported `duration_ms()` helper with its expected-duration parameter. Output duration validation now computes the actual MP3 duration and compares it against the expected acquisition duration.
+A real song-to-Reel pipeline job was **not** executed in this packaging environment. Live Spotify/YT Music/LRCLIB calls, model-server downloads and inference, real FFmpeg media rendering, audio/video quality, and target-machine CUDA/NVENC behavior require the user's credentials, target media, downloaded models and hardware. Offset thresholds need empirical calibration on annotated recordings. Ruff and mypy were unavailable in the build environment and were not run. Syntax compilation, import checks and unit tests do not replace those checks.

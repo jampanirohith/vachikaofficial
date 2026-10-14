@@ -1,41 +1,36 @@
+# Python/runtime caches
 __pycache__/
 *.py[cod]
-*.pyo
-
-.venv/
-venv/
-
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .pyre/
+.venv/
+venv/
 
+# Generated project state and media
 logs/
-
 temp/
-
 db/
-
 songs/
-
 reels/
 
+# Downloaded model weights (the small README remains tracked)
 models/*
 !models/README.md
 
-archives/
-
-browser.json
-cookies.txt
-*.cookies.txt
-
+# Private credentials/browser cookies
+config.json
+!config.json.example
+spotify_auth.json
+auth.json
 oauth.json
 *.oauth.json
+*.cookies.txt
+cookies.txt
+browser.json
 
-spotify_auth.json
-
+# Editor state
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
-
-config.json

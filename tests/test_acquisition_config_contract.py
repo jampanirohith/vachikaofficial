@@ -5,7 +5,7 @@ import pytest
 
 
 def test_acquire_uses_selected_ytmusic_url_with_download_client(monkeypatch, tmp_path):
-    from src import acquisition
+    from src.providers import acquisition
     calls={}
     class FakeClient:
         def __init__(self,*args,**kwargs):
@@ -30,13 +30,13 @@ def test_acquire_uses_selected_ytmusic_url_with_download_client(monkeypatch, tmp
 
 
 def test_ytmusic_search_requires_known_duration_match(monkeypatch):
-    from src.acquisition import search_ytmusic_audio, AcquisitionError
+    from src.providers.acquisition import search_ytmusic_audio, AcquisitionError
     class API:
         def search(self,*args,**kwargs):
             assert kwargs['filter']=='songs'
             return [{'videoId':'A','title':'A','duration_seconds':None}]
     class Client: api=API()
-    monkeypatch.setattr('src.acquisition._make_ytm_client',lambda cfg: Client())
+    monkeypatch.setattr('src.providers.acquisition._make_ytm_client',lambda cfg: Client())
     sr=SimpleNamespace(track_name='T',album_name='A',duration_ms=100000)
     cfg=SimpleNamespace(get=lambda k,d=None: 10 if k=='ytmusic.search_limit' else 2000)
     with pytest.raises(AcquisitionError,match='MATCH_NOT_FOUND'):
@@ -45,7 +45,7 @@ def test_ytmusic_search_requires_known_duration_match(monkeypatch):
 
 def test_ytdlp_downloader_receives_only_selected_ytmusic_url(monkeypatch, tmp_path):
     from types import SimpleNamespace
-    from src.ytm_media import YTMusicMediaClient
+    from src.providers.ytm_media import YTMusicMediaClient
     calls = {}
     class FakeYDL:
         def __init__(self, opts):
@@ -60,7 +60,7 @@ def test_ytdlp_downloader_receives_only_selected_ytmusic_url(monkeypatch, tmp_pa
             return {'id':'A','title':'T','duration':100}
     fake = SimpleNamespace(YoutubeDL=FakeYDL, version=SimpleNamespace(__version__='test'))
     monkeypatch.setitem(__import__('sys').modules, 'yt_dlp', fake)
-    monkeypatch.setattr('src.ytm_media.duration_ms', lambda p: 100000)
+    monkeypatch.setattr('src.providers.ytm_media.duration_ms', lambda p: 100000)
     client = object.__new__(YTMusicMediaClient)
     client.timeout = 60
     client.ytdlp_config = {'audio_quality_kbps': 320, 'format_selector':'bestaudio/best'}
@@ -75,7 +75,7 @@ def test_ytdlp_downloader_receives_only_selected_ytmusic_url(monkeypatch, tmp_pa
 
 
 def test_ytdlp_downloader_rejects_non_ytmusic_search_url(tmp_path):
-    from src.ytm_media import YTMusicMediaClient, YTMusicMediaError
+    from src.providers.ytm_media import YTMusicMediaClient, YTMusicMediaError
     client = object.__new__(YTMusicMediaClient)
     client.timeout = 60
     client.ytdlp_config = {}
@@ -84,7 +84,7 @@ def test_ytdlp_downloader_rejects_non_ytmusic_search_url(tmp_path):
 
 
 def test_nested_master_info_json_normalizes_without_redownload(tmp_path):
-    from src.acquisition import normalized_from_acquisition
+    from src.providers.acquisition import normalized_from_acquisition
     info = {
         'id': 'A',
         'webpage_url': 'https://music.youtube.com/watch?v=A',
@@ -107,7 +107,7 @@ def test_nested_master_info_json_normalizes_without_redownload(tmp_path):
 
 
 def test_playlist_metadata_is_final_fallback_for_nested_source(tmp_path):
-    from src.acquisition import normalized_from_acquisition
+    from src.providers.acquisition import normalized_from_acquisition
     path = tmp_path/'master.info.json'
     path.write_text(json.dumps({'stream': {}, 'yt_dlp': {}}), encoding='utf-8')
     md = normalized_from_acquisition(
@@ -120,7 +120,7 @@ def test_playlist_metadata_is_final_fallback_for_nested_source(tmp_path):
 
 
 def test_ytmusic_search_selects_closest_duration_not_first_match(monkeypatch):
-    from src.acquisition import search_ytmusic_audio
+    from src.providers.acquisition import search_ytmusic_audio
     class API:
         def search(self,*args,**kwargs):
             return [
@@ -129,7 +129,7 @@ def test_ytmusic_search_selects_closest_duration_not_first_match(monkeypatch):
                 {'videoId':'C','title':'exact','duration_seconds':200.0},
             ]
     class Client: api=API()
-    monkeypatch.setattr('src.acquisition._make_ytm_client',lambda cfg: Client())
+    monkeypatch.setattr('src.providers.acquisition._make_ytm_client',lambda cfg: Client())
     sr=SimpleNamespace(track_name='T',album_name='A',duration_ms=200000,track_id='S1')
     cfg=SimpleNamespace(get=lambda k,d=None: 10 if k=='ytmusic.search_limit' else (2000 if k=='ytmusic.duration_tolerance_ms' else 60))
     _, selected, candidates = search_ytmusic_audio(cfg,sr)
@@ -139,7 +139,7 @@ def test_ytmusic_search_selects_closest_duration_not_first_match(monkeypatch):
 
 
 def test_ytmusic_search_uses_unauthenticated_client_contract(monkeypatch):
-    from src import acquisition
+    from src.providers import acquisition
     calls = {}
     class FakeClient:
         def __init__(self, auth_file=None, **kwargs): calls["auth"] = auth_file; self.api = type("API", (), {"search": lambda self, *a, **k: []})()
@@ -151,7 +151,7 @@ def test_ytmusic_search_uses_unauthenticated_client_contract(monkeypatch):
 
 
 def test_ytmusic_scoring_prefers_correct_artist_over_tiny_duration_difference(monkeypatch):
-    from src.acquisition import search_ytmusic_audio
+    from src.providers.acquisition import search_ytmusic_audio
     class API:
         def search(self,*args,**kwargs):
             return [
@@ -159,8 +159,23 @@ def test_ytmusic_scoring_prefers_correct_artist_over_tiny_duration_difference(mo
                 {"videoId":"right","title":"Song","artists":[{"name":"Right Artist"}],"album":{"name":"Album"},"duration_seconds":180.8},
             ]
     class Client: api=API()
-    monkeypatch.setattr("src.acquisition._make_ytm_client",lambda cfg: Client())
+    monkeypatch.setattr("src.providers.acquisition._make_ytm_client",lambda cfg: Client())
     sr=SimpleNamespace(track_name="Song",artists=["Right Artist"],album_name="Album",duration_ms=180000,track_id="S1")
     cfg=SimpleNamespace(get=lambda k,d=None: 10 if k=='ytmusic.search_limit' else (1000 if k=='ytmusic.duration_tolerance_ms' else 60))
     _, selected, _ = search_ytmusic_audio(cfg,sr)
     assert selected["video_id"] == "right"
+
+
+def test_selected_ytmusic_id_must_match_downloader_url():
+    import pytest
+    from pathlib import Path
+    from src.providers.ytm_media import YTMusicMediaClient, YTMusicMediaError
+
+    client = object.__new__(YTMusicMediaClient)
+    client.ytdlp_config = {}
+    with pytest.raises(YTMusicMediaError, match="SOURCE_ID_MISMATCH"):
+        client.download_audio_mp3(
+            "VIDEO_A",
+            Path("/tmp/vachika-video-mismatch.mp3"),
+            source_url="https://music.youtube.com/watch?v=VIDEO_B",
+        )

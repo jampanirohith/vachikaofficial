@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from .utils import Phase3Error, run_cmd, ffmpeg_has_encoder, nvenc_video_args
+from src.rendercore.utils import Phase3Error, run_cmd, ffmpeg_has_encoder, nvenc_video_args
 
 class Assembler:
     def __init__(self,cfg,work_dir,logger): self.cfg=cfg; self.work=work_dir; self.logger=logger

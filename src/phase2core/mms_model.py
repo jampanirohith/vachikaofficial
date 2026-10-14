@@ -7,8 +7,8 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
-from .types import EmissionResult
-from ..model_cache import configure_model_cache
+from src.phase2core.types import EmissionResult
+from src.common.model_cache import configure_model_cache
 
 
 class MMSModel:
@@ -53,12 +53,12 @@ class MMSModel:
 
         requested = self.requested_device
         cuda_available = self._cuda_available(torch)
-        if requested == "cuda" and not cuda_available:
+        if requested.startswith("cuda") and not cuda_available:
             message = (
                 "CUDA_REQUIRED: MMS requested CUDA, but the installed PyTorch build has no CUDA support. "
                 "Install the pinned CUDA build with scripts/install_windows_cuda.ps1."
             )
-            if self.require_cuda and not self.allow_cpu_fallback:
+            if self.require_cuda or not self.allow_cpu_fallback:
                 raise RuntimeError(message)
             requested = self.fallback_device
 
@@ -88,7 +88,7 @@ class MMSModel:
             self.model.to(requested)
             self.device = requested
         except Exception as exc:
-            if requested != self.fallback_device and self.allow_cpu_fallback:
+            if requested != self.fallback_device and self.allow_cpu_fallback and not self.require_cuda:
                 self.model.to(self.fallback_device)
                 self.device = self.fallback_device
             else:
@@ -132,7 +132,7 @@ class MMSModel:
             with torch.inference_mode():
                 logits = self.model(**inputs).logits
         except RuntimeError as exc:
-            if self.device == "cuda" and self.allow_cpu_fallback and self.fallback_device != "cuda":
+            if self.device.startswith("cuda") and self.allow_cpu_fallback and not self.require_cuda and not self.fallback_device.startswith("cuda"):
                 try:
                     self.model.to(self.fallback_device)
                     self.device = self.fallback_device

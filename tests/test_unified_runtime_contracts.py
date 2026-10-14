@@ -1,10 +1,10 @@
 from pathlib import Path
 import sqlite3
-from src.db_playlist import PlaylistDB
-from src.db_songs import SongsDB
-from src.db_reels import ReelsDB
-from src.db_maintenance import backup_databases, restore_databases, integrity_check
-from src.demucs import DemucsRunner
+from src.storage.playlist_db import PlaylistDB
+from src.storage.song_db import SongsDB
+from src.storage.reel_db import ReelsDB
+from src.storage.maintenance import backup_databases, restore_databases, integrity_check
+from src.audio.demucs import DemucsRunner
 
 
 def _dbs(tmp_path): return PlaylistDB(tmp_path/'playlist.db'),SongsDB(tmp_path/'songs.db'),ReelsDB(tmp_path/'reels.db')
@@ -29,13 +29,18 @@ def test_playlist_schema_has_no_popularity_columns(tmp_path):
     assert not cols.intersection(forbidden)
 
 
-def test_demucs_cache_has_stable_run_id(tmp_path):
+def test_demucs_cache_has_stable_run_id(monkeypatch, tmp_path):
     work=tmp_path/'work';work.mkdir();source=tmp_path/'song.mp3';source.write_bytes(b'source')
-    out=work/'audio'/'stems';out.mkdir(parents=True)
-    for stem in ('vocals','drums','bass','other'):(out/f'{stem}.wav').write_bytes(b'0'*2000)
-    d=DemucsRunner({'demucs.model':'htdemucs','runtime.device':'cpu'},work,None).run(source)
-    d2=DemucsRunner({'demucs.model':'htdemucs','runtime.device':'cpu'},work,None).run(source)
-    assert d['run_id']==d2['run_id'] and d['run_id'] not in ('','reused')
+    d=DemucsRunner({'demucs.model':'htdemucs','runtime.device':'cpu'},work,None)
+    calls=[]
+    def fake_run(src,outroot,device,segment=None):
+        calls.append((Path(outroot),device))
+        folder=Path(outroot)/'htdemucs'/Path(src).stem;folder.mkdir(parents=True,exist_ok=True)
+        for stem in ('vocals','drums','bass','other'):(folder/f'{stem}.wav').write_bytes((stem.encode()*400))
+    monkeypatch.setattr(d,'_run',fake_run)
+    d1=d.run(source);d2=d.run(source)
+    assert d1['run_id']==d2['run_id'] and d1['run_id'] not in ('','reused')
+    assert len(calls)==1
 
 
 def test_sqlite_stage_accepts_windows_path(tmp_path):
@@ -73,8 +78,8 @@ def test_stale_playlist_db_is_quarantined(tmp_path):
 
 def test_audio_dependency_boundary_is_search_then_ytdlp():
     from pathlib import Path
-    acquisition = Path('src/acquisition.py').read_text(encoding='utf-8')
-    media = Path('src/ytm_media.py').read_text(encoding='utf-8')
+    acquisition = Path('src/providers/acquisition.py').read_text(encoding='utf-8')
+    media = Path('src/providers/ytm_media.py').read_text(encoding='utf-8')
     assert 'api.search(query, filter="songs"' in acquisition
     assert 'music.youtube.com/watch?v=' in acquisition
     assert 'yt_dlp' in media
@@ -84,7 +89,7 @@ def test_audio_dependency_boundary_is_search_then_ytdlp():
 
 
 def test_demucs_immediately_uses_cpu_when_cuda_unavailable(monkeypatch, tmp_path):
-    from src.demucs import DemucsRunner
+    from src.audio.demucs import DemucsRunner
     d=DemucsRunner({'demucs.model':'htdemucs','runtime.device':'cuda','runtime.fallback_device':'cpu','runtime.allow_cpu_fallback':True,'runtime.require_cuda':False,'demucs.segment_seconds':8},tmp_path,None)
     monkeypatch.setattr(d,'_cuda_ok',lambda: False)
     calls=[]
@@ -119,7 +124,7 @@ def test_runtime_config_prefers_cuda_with_cpu_fallback():
     assert cfg['runtime']['allow_cpu_fallback'] is True
 
 def test_demucs_db_runs_receive_created_at():
-    from src.db_songs import SongsDB
+    from src.storage.song_db import SongsDB
     from pathlib import Path
     import tempfile
     root = Path(tempfile.mkdtemp())
@@ -133,9 +138,9 @@ def test_demucs_db_runs_receive_created_at():
 
 def test_core_final_package_is_promoted_before_hook():
     from pathlib import Path
-    text = Path('src/pipeline.py').read_text(encoding='utf-8')
+    text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
     assert text.index('Pre-hook final package promotion') < text.index('Manual hook')
-    assert 'final_mp3_path=str(final_mp3.relative_to(self.cfg.root))' in text
+    assert 'final_mp3_path=display_path(final_mp3, self.cfg.root)' in text
     assert 'eightd = final_8d' in text
 
 
@@ -148,7 +153,7 @@ def test_unified_config_exposes_canonical_config_path():
 
 def test_alignment_adapter_is_self_contained_and_has_no_archive_config_dependency():
     from pathlib import Path
-    alignment = Path('src/alignment.py').read_text(encoding='utf-8')
+    alignment = Path('src/alignment/adapter.py').read_text(encoding='utf-8')
     assert "cfg.config_path" in alignment
     assert "archives/phase2" not in alignment
     db = Path('src/phase2core/db.py').read_text(encoding='utf-8')
@@ -161,7 +166,7 @@ def test_phase2_database_constructor_matches_alignment_adapter():
     signature = inspect.signature(Database.__init__)
     assert "pipeline_version" not in signature.parameters
 
-    alignment = Path("src/alignment.py").read_text(encoding="utf-8")
+    alignment = Path("src/alignment/adapter.py").read_text(encoding="utf-8")
     assert "Database(p2.path('paths.db_dir')/'phase2.sqlite',pipeline_version=" not in alignment
     assert "Database(p2.path('paths.db_dir')/'phase2.sqlite')" in alignment
 
@@ -171,8 +176,9 @@ def test_phase2_pipeline_constructor_matches_alignment_adapter():
     from src.phase2core.pipeline import Pipeline as P2Pipeline
     signature = inspect.signature(P2Pipeline.__init__)
     assert list(signature.parameters) == ["self", "config", "db", "allow_cpu_fallback"]
-    alignment = Path("src/alignment.py").read_text(encoding="utf-8")
-    assert "P2Pipeline(p2,dbobj,allow_cpu_fallback=True)" in alignment
+    alignment = Path("src/alignment/adapter.py").read_text(encoding="utf-8")
+    assert "P2Pipeline(p2,dbobj,allow_cpu_fallback=bool(cfg.get('runtime.allow_cpu_fallback',True)))" in alignment
+    assert "'require_cuda':bool(cfg.get('runtime.require_cuda',False))" in alignment
 
 
 def test_phase2_database_schema_is_packaged_with_unified_runtime(tmp_path):
@@ -192,18 +198,18 @@ def test_phase2_database_schema_is_packaged_with_unified_runtime(tmp_path):
 
 
 def test_model_cache_is_project_persistent_and_not_per_song():
-    from src.model_cache import configure_model_cache
+    from src.common.model_cache import configure_model_cache
     root = configure_model_cache(Path("models"))
     assert root.name == "models"
     assert (root / "huggingface" / "hub").is_dir()
     assert (root / "torch").is_dir()
-    alignment = Path("src/alignment.py").read_text(encoding="utf-8")
+    alignment = Path("src/alignment/adapter.py").read_text(encoding="utf-8")
     assert "cfg.path('paths.models_dir')" in alignment
     assert "base/'models'" not in alignment
 
 
 def test_demucs_runner_accepts_persistent_model_cache(tmp_path):
-    from src.demucs import DemucsRunner
+    from src.audio.demucs import DemucsRunner
     cache = tmp_path / "models"
     d = DemucsRunner({'demucs.model':'htdemucs','runtime.device':'cpu'}, tmp_path/'work', None, model_cache_dir=cache)
     assert d.model_cache_dir == cache
@@ -215,13 +221,13 @@ def test_phase2_demucs_receives_persistent_model_cache():
 
 
 def test_main_demucs_receives_persistent_model_cache():
-    text = Path('src/pipeline.py').read_text(encoding='utf-8')
+    text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
     assert 'model_cache_dir=self.cfg.path("paths.models_dir")' in text
 
 
 def test_model_cache_environment_is_project_owned(tmp_path, monkeypatch):
     import os
-    from src.model_cache import configure_model_cache
+    from src.common.model_cache import configure_model_cache
     root = configure_model_cache(tmp_path / "models")
     assert Path(os.environ["HF_HOME"]) == root / "huggingface"
     assert Path(os.environ["HF_HUB_CACHE"]) == root / "huggingface" / "hub"
@@ -229,7 +235,7 @@ def test_model_cache_environment_is_project_owned(tmp_path, monkeypatch):
 
 
 def test_songs_db_persists_alignment_lyric_lines_and_words_atomically(tmp_path):
-    from src.db_songs import SongsDB
+    from src.storage.song_db import SongsDB
     db = SongsDB(tmp_path / "songs.db", Path("database/songs_schema.sql"))
     key = "1_TEST"
     db.ensure_song({"song_key": key, "title": "Test", "basename": "Test", "duration_ms": 1000})
@@ -254,7 +260,7 @@ def test_songs_db_persists_alignment_lyric_lines_and_words_atomically(tmp_path):
 
 def test_eightd_crops_all_stems_to_one_canonical_frame_count():
     import numpy as np
-    from src.eightd import _fit_stems
+    from src.audio.eightd import _fit_stems
     arrays={
         'vocals': np.zeros((2, 100), dtype=np.float32),
         'drums': np.zeros((2, 103), dtype=np.float32),
@@ -269,7 +275,7 @@ def test_eightd_crops_all_stems_to_one_canonical_frame_count():
 
 def test_eightd_density_gain_timeline_covers_non_block_aligned_audio():
     import numpy as np
-    from src import eightd
+    from src.audio import eightd
     sr = 44100
     n = 10343666  # deliberately not divisible by the 100 ms block size
     block = max(1, int(sr * 0.1))
@@ -280,15 +286,15 @@ def test_eightd_density_gain_timeline_covers_non_block_aligned_audio():
 
 
 def test_eightd_mix_never_uses_uncropped_drums():
-    text=Path('src/eightd.py').read_text(encoding='utf-8')
+    text=Path('src/audio/eightd.py').read_text(encoding='utf-8')
     assert "drums0=arrays['drums'][:,:n]" in text
     assert "dmix=0.88*drums0.mean(axis=0)" in text
 
 def test_pipeline_songs_db_calls_match_songs_db_api():
     import ast
     from pathlib import Path
-    pipeline = ast.parse(Path("src/pipeline.py").read_text(encoding="utf-8"))
-    db = ast.parse(Path("src/db_songs.py").read_text(encoding="utf-8"))
+    pipeline = ast.parse(Path("src/orchestration/pipeline.py").read_text(encoding="utf-8"))
+    db = ast.parse(Path("src/storage/song_db.py").read_text(encoding="utf-8"))
     methods = {n.name for n in db.body if isinstance(n, ast.ClassDef) and n.name == "SongsDB" for n in n.body if isinstance(n, ast.FunctionDef)}
     calls = {n.func.attr for n in ast.walk(pipeline) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and isinstance(n.func.value, ast.Attribute) and n.func.value.attr == "songs_db"}
     assert calls <= methods, sorted(calls - methods)
@@ -297,7 +303,7 @@ def test_pipeline_songs_db_calls_match_songs_db_api():
 
 def test_eightd_ignores_demucs_metadata_when_hashing_stems():
     import ast
-    tree=ast.parse(Path("src/eightd.py").read_text(encoding="utf-8"))
+    tree=ast.parse(Path("src/audio/eightd.py").read_text(encoding="utf-8"))
     fn=next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "render")
     calls=[n for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "sha256_file"]
     # Every stem hash must iterate over the canonical four audio-stem paths, not
@@ -308,7 +314,7 @@ def test_eightd_ignores_demucs_metadata_when_hashing_stems():
 
 def test_eightd_duration_parameter_does_not_shadow_duration_helper():
     import ast
-    tree = ast.parse(Path("src/eightd.py").read_text(encoding="utf-8"))
+    tree = ast.parse(Path("src/audio/eightd.py").read_text(encoding="utf-8"))
     render = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "render")
     args = {a.arg for a in render.args.args}
     assert "expected_duration_ms" in args
@@ -329,22 +335,22 @@ def test_visual_video_download_uses_selected_youtube_url_not_ytmusicapi():
     assert "YTMusicMediaClient" not in text
     assert "yt_dlp.YoutubeDL" in text
     assert "selected_url" in text
-    reel=Path("src/reel.py").read_text(encoding="utf-8")
-    pipeline=Path("src/pipeline.py").read_text(encoding="utf-8")
+    reel=Path("src/video/reel.py").read_text(encoding="utf-8")
+    pipeline=Path("src/orchestration/pipeline.py").read_text(encoding="utf-8")
     assert 'video.video_url, offset["candidate_offset_ms"]' in pipeline
     assert "yt_video_source" in reel
 
 
 def test_visual_selection_is_reused_for_reel_without_second_search():
     from pathlib import Path
-    text=Path("src/pipeline.py").read_text(encoding="utf-8")
+    text=Path("src/orchestration/pipeline.py").read_text(encoding="utf-8")
     assert text.count("select_video(self.cfg, md.title, md.album, spotify_result.duration_ms, work, md.artist)") == 1
     assert "build_reel(self.cfg, work, song_record, hs, he, video.video_url" in text
 
 
 def test_pipeline_reels_db_upsert_calls_use_table_first_contract():
     from pathlib import Path
-    text = Path("src/pipeline.py").read_text(encoding="utf-8")
+    text = Path("src/orchestration/pipeline.py").read_text(encoding="utf-8")
     bad = [
         'self.reels_db.upsert(reel_key, "reel_youtube_sync", "reel_key",',
         'self.reels_db.upsert(reel_key, "reel_audio", "reel_key",',
@@ -359,7 +365,7 @@ def test_pipeline_reels_db_upsert_calls_use_table_first_contract():
 
 def test_pipeline_defines_canonical_reel_final_paths_before_use():
     import ast
-    text = Path("src/pipeline.py").read_text(encoding="utf-8")
+    text = Path("src/orchestration/pipeline.py").read_text(encoding="utf-8")
     tree = ast.parse(text)
     fn = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Pipeline").body
     process = next(n for n in fn if isinstance(n, ast.FunctionDef) and n.name == "process_entry")
@@ -381,7 +387,7 @@ def test_pipeline_defines_canonical_reel_final_paths_before_use():
 
 
 def test_pipeline_final_song_paths_do_not_reference_undefined_targets():
-    text = Path("src/pipeline.py").read_text(encoding="utf-8")
+    text = Path("src/orchestration/pipeline.py").read_text(encoding="utf-8")
     assert "targets[0][1]" not in text
     assert "targets[1][1]" not in text
     assert "targets[2][1]" not in text
@@ -395,7 +401,7 @@ def test_hook_skip_config_and_persistent_queue_contract():
     cfg = json.loads(Path('config.json').read_text(encoding='utf-8'))
     assert isinstance(cfg['hook']['skip'], bool)
     assert cfg['hook']['queue_file'] == 'songs/final/hook_queue.json'
-    text = Path('src/pipeline.py').read_text(encoding='utf-8')
+    text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
     assert 'if bool(self.cfg.get("hook.skip", False))' in text
     assert 'hook_start_time' in text and 'hook_end_time' in text
     assert 'self.cfg.hook_queue_file' in text
@@ -403,7 +409,7 @@ def test_hook_skip_config_and_persistent_queue_contract():
 
 def test_hook_queue_resume_uses_persisted_times_without_media_reselection():
     from pathlib import Path
-    text = Path('src/pipeline.py').read_text(encoding='utf-8')
+    text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
     assert 'def _finalize_from_hook_queue' in text
     assert 'build_reel(self.cfg, work, song_record, hs, he, video_url, offset_ms' in text
     assert 'if not video_url:' in text
@@ -416,7 +422,7 @@ def test_hook_queue_resume_uses_persisted_times_without_media_reselection():
 
 def test_hook_queue_stale_source_package_recovers_into_normal_pipeline():
     from pathlib import Path
-    text = Path("src/pipeline.py").read_text(encoding="utf-8")
+    text = Path("src/orchestration/pipeline.py").read_text(encoding="utf-8")
     assert "def _hook_queue_sources_exist" in text
     assert "def _mark_hook_queue_stale" in text
     assert "has a stale hook queue entry" in text
@@ -426,7 +432,17 @@ def test_hook_queue_stale_source_package_recovers_into_normal_pipeline():
 
 def test_hook_queue_is_written_before_manual_hook_prompt():
     from pathlib import Path
-    text = Path('src/pipeline.py').read_text(encoding='utf-8')
+    text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
     assert text.index('Optional hook deferral') < text.index('Manual hook')
     assert 'self._upsert_hook_queue_entry(queue_entry)' in text
     assert 'return "hook_pending"' in text
+
+
+def test_display_path_supports_project_relative_and_external_paths(tmp_path):
+    from src.common.paths import display_path
+
+    root = tmp_path / "project"
+    local = root / "songs" / "final.mp3"
+    external = tmp_path / "external" / "final.mp3"
+    assert display_path(local, root) == "songs/final.mp3"
+    assert display_path(external, root) == str(external.resolve())

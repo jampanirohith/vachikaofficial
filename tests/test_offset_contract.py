@@ -1,4 +1,4 @@
-from src import youtube_sync
+from src.video import synchronization as youtube_sync
 import numpy as np
 
 

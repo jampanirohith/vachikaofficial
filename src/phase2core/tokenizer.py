@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .types import SourceWord, TokenRef
+from src.phase2core.types import SourceWord, TokenRef
 
 
 class ReferenceTokenizer:

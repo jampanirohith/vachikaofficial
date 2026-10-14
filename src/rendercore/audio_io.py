@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, subprocess
 from pathlib import Path
 import numpy as np
-from .utils import Phase3Error, run_cmd
+from src.rendercore.utils import Phase3Error, run_cmd
 
 def probe(path:Path)->dict:
     cmd=['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(path)]

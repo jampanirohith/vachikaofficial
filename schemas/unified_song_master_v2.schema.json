@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vachika.local/schemas/unified_song_master_v2.schema.json",
+  "title": "Vachika Unified Song Master v2",
+  "description": "Versioned contract for the final per-song processing/provenance record. Provider and phase-2 namespaces may contain additional fields.",
+  "type": "object",
+  "required": ["unified_pipeline"],
+  "properties": {
+    "unified_pipeline": {
+      "type": "object",
+      "required": ["schema_version", "record_schema", "manifest"],
+      "properties": {
+        "schema_version": {"const": 2},
+        "record_schema": {"const": "unified_song_master_v2"},
+        "manifest": {
+          "type": "object",
+          "required": [
+            "created_at_utc", "schema_version", "record_type", "record_schema",
+            "pipeline_version", "algorithm_versions", "artifacts",
+            "validation_status", "content_fingerprint"
+          ],
+          "properties": {
+            "created_at_utc": {"type": "string", "format": "date-time"},
+            "schema_version": {"const": 2},
+            "record_type": {"const": "song_processing_manifest"},
+            "record_schema": {"const": "unified_song_master_v2"},
+            "pipeline_version": {"type": "string", "minLength": 1},
+            "config_sha256": {"type": ["string", "null"]},
+            "source_sha256": {"type": ["string", "null"]},
+            "algorithm_versions": {"type": "object"},
+            "artifacts": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["path", "sha256", "exists", "self_reference"],
+                "properties": {
+                  "path": {"type": "string", "minLength": 1},
+                  "sha256": {"type": ["string", "null"]},
+                  "size_bytes": {"type": ["integer", "null"], "minimum": 0},
+                  "exists": {"type": "boolean"},
+                  "self_reference": {"type": "boolean"},
+                  "hash_location": {"type": "string"}
+                },
+                "additionalProperties": true
+              }
+            },
+            "validation_status": {"type": "string", "minLength": 1},
+            "content_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          },
+          "additionalProperties": true
+        },
+        "outputs": {"type": "object"},
+        "hashes": {"type": "object"},
+        "status": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

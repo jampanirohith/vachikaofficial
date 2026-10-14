@@ -5,7 +5,7 @@ import math
 
 import numpy as np
 
-from .types import TokenRef, TokenSpan
+from src.phase2core.types import TokenRef, TokenSpan
 
 
 @dataclass(slots=True)

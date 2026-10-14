@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from .types import AlignedWord, SourceWord, TokenRef, TokenSpan
+from src.phase2core.types import AlignedWord, SourceWord, TokenRef, TokenSpan
 
 
 class WordBuilder:

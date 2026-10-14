@@ -52,8 +52,8 @@ class ASSGenerator:
         self.work = Path(work_dir)
         self.logger = logger
 
-    def _header(self) -> str:
-        font_name = self.cfg.get("lyrics.font_name", "Suravaram-Regular")
+    def _header(self, resolved_font_name: str | None = None) -> str:
+        font_name = str(resolved_font_name or self.cfg.get("lyrics.font_name", "Suravaram"))
         size = int(self.cfg.get("lyrics.font_size", 58))
         bold = 1 if self.cfg.get("lyrics.font_bold", True) else 0
         outline = int(self.cfg.get("lyrics.outline", 3))
@@ -178,11 +178,12 @@ class ASSGenerator:
         reel_end_ms: int,
         font_path: Path,
         tracking: dict | None = None,
+        font_name: str | None = None,
     ) -> Path:
         out = self.work / "lyrics" / "lyrics.ass"
         out.parent.mkdir(parents=True, exist_ok=True)
 
-        header = self._header()
+        header = self._header(font_name)
         events: list[str] = []
         cx = int(self.cfg.get("lyrics.center_x", 540))
         cy = int(self.cfg.get("lyrics.center_y", 960))

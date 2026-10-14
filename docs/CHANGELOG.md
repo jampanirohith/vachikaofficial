@@ -1,3 +1,18 @@
+# 1.4.30-src-organized
+
+- Completed a fresh cross-check against the historical pre-repair audit and kept the remaining target-machine checks clearly marked rather than claiming they passed.
+- Refreshed the build record and checksum manifest for the reorganized package; release inventory and test counts now reflect the final tree.
+- Revalidated 110 tests, Python compilation, CLI help, configuration-template consistency and static `src.*` import targets.
+
+- Reorganized all active application implementations into canonical `providers`, `audio`, `video`, `storage`, `orchestration`, `common`, `diagnostics` and `alignment` packages. Updated runtime, scripts and tests, then removed old root-level forwarding modules.
+- Preserved the active `phase2core` word-alignment engine and `rendercore` media engine.
+- Replaced the process-wide Requests timeout monkey patch with a timeout-bearing Requests session scoped to the `ytmusicapi` client.
+- Added explicit `unified_song_master_v2` JSON Schema and runtime validation; final song manifests include output existence/hash evidence, method/config/source fingerprints and a JSON self-hash sidecar.
+- Resolved actual embedded font-family names and unified ASS, Reel JSON, song JSON and DB font provenance.
+- Clarified DB integrity checking as `--check-db`; retained `--migrate-db` only as an explicitly documented compatibility alias.
+- Rewrote the source map, current architecture, config guide, full audit and roadmap to reflect the migrated source tree and remaining target-data checks.
+- Added regression checks for package layout/import contracts, per-client HTTP timeouts, font-family metadata and manifest schema/hash behavior.
+
 # v1.4.28.1 — Telugu LRC script gate
 
 - Added a hard post-selection lyrics gate requiring at least one Telugu Unicode code point (U+0C00–U+0C7F) in the complete selected LRC.
@@ -184,3 +199,26 @@ Earlier Phase 1/2/3 and v1.1.x/v1.3.x changes remain in the archived project mat
 - Visual selection ignores duration completely and selects the first result whose title does not contain `lyric`, `lyrics`, or `lyrical`.
 - LRCLIB keeps the exact `/api/get` lookup, then falls back to `/api/search` with title+artist and title queries and ranks only candidates with valid synced lyrics.
 - Finalized songs continue to publish both the line-synced `.lrc` and word-level `.lrc` artifacts.
+
+## 1.4.29-project-cleanup
+
+- Fixed the duplicate-ISRC handler call signature at the pipeline call site.
+- Preserved final word-timing repairs rather than re-merging over them before validation.
+- Fixed Reel trims to use the absolute selected-video timeline after applying the video offset; cache files now identify the download as the complete source video.
+- Added source-hash/output-hash manifests for 16 kHz derived audio and selected-video reference audio; changing the selected video invalidates its full cached media set.
+- Isolated Demucs output for each retry/fallback attempt and accepted stems only from the successful attempt.
+- Added score and ambiguity rejection for visual-video audio offset matching; thresholds are included in cache identity.
+- Preserved custom config paths, corrected OAuth callback path/state validation, honored configured DB directories in maintenance operations, and made dry-run read-only.
+- Added `--prepare-models` / `--download-models` to pre-cache MMS/CTC+Telugu, HTDemucs and Silero VAD.
+- Removed inactive legacy downloader/artwork, YT Music playlist-ingestion and duplicate phase-2 doctor/recovery paths, old Windows YT Music auth helpers, scratchpad and stale plan drafts.
+- Replaced stale setup/architecture/build documentation; removed generated hook queue and Python cache files from the source package.
+
+## 1.4.29-project-cleanup — final validation additions
+- Added media-hash validation for cached complete source-video downloads and duration-aware validation for cached source WAVs; temporary FFmpeg output is removed even on decode failure.
+- Corrected CUDA-required vs CPU-fallback contradictions across config validation, MMS loading, both Demucs implementations, the Phase 2 alignment adapter and environment doctor.
+- Fixed Phase 2 vocal separation to isolate retry/fallback attempts and promote vocals only from the successful attempt, including prevention of stale partial-output reuse.
+- Added regressions for stale-duration WAV caches, altered cached video files, strict runtime policy, and isolated Phase 2 Demucs retries.
+- Enforced the configured overall yt-dlp download deadline for audio and video source downloads; socket timeout remains separately enabled.
+- Canonicalized selected YouTube URLs from validated video IDs and reject mismatched reference-audio IDs/URLs.
+- Made Demucs retry segmentation distinct by default (8 s normal / 4 s OOM retry) and included it in cache provenance.
+- Final package regression suite: 103 passed; Python compilation and relative-import target checks passed. Live model/media end-to-end behavior remains unverified in the package environment.

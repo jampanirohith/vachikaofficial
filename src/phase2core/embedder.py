@@ -7,8 +7,8 @@ from typing import Iterable
 from mutagen.id3 import APIC, ID3, SYLT
 from mutagen.mp3 import MP3
 
-from .types import AlignedWord, SourceSnapshot
-from .utils import atomic_copy, sha256_file
+from src.phase2core.types import AlignedWord, SourceSnapshot
+from src.phase2core.utils import atomic_copy, sha256_file
 
 PHASE2_SYLT_DESC = "Phase2-WordLevel"
 PHASE2_LANG = "tel"

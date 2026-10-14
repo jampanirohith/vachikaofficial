@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.config import Config
-from src.spotify_auth import authorize_pkce
+from src.providers.spotify_auth import authorize_pkce
 
 
 def main():

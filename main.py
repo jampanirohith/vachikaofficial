@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import sqlite3
 import json
 import logging
 import shutil
@@ -10,13 +11,13 @@ import time
 from pathlib import Path
 
 from src.config import Config
-from src.db_playlist import PlaylistDB
-from src.db_songs import SongsDB
-from src.db_reels import ReelsDB
-from src.recovery import Recovery
-from src.doctor import run_doctor
-from src.db_maintenance import backup_databases, restore_databases, migrate_databases, integrity_check
-from src.spotify import SpotifyClient, SpotifyError
+from src.storage.playlist_db import PlaylistDB
+from src.storage.song_db import SongsDB
+from src.storage.reel_db import ReelsDB
+from src.orchestration.recovery import Recovery
+from src.diagnostics.doctor import run_doctor
+from src.storage.maintenance import backup_databases, restore_databases, migrate_databases, integrity_check
+from src.providers.spotify import SpotifyClient, SpotifyError
 
 
 def logger(cfg):
@@ -73,7 +74,7 @@ def playlist_snapshot(cfg, pdb, log):
 
     # Normalize directly from the already-fetched page data: this does not make any per-track
     # Spotify API calls during the first-run snapshot.
-    from src.spotify_playlist import normalize_playlist_item
+    from src.providers.spotify_playlist import normalize_playlist_item
     normalized_items = [normalize_playlist_item(item, i) for i, item in enumerate(raw_items, 1)]
     snapshot_id = str(meta.get("snapshot_id") or "") or None
     playlist_url = str(((meta.get("external_urls") or {}).get("spotify") if isinstance(meta.get("external_urls"), dict) else "") or f"https://open.spotify.com/playlist/{pid}")
@@ -201,10 +202,8 @@ def print_review(cfg, pdb, sdb, rdb, serial):
 
 
 def main():
-    print("Unified Spotify Playlist -> YT Music Audio -> Word LRC -> Whole-song 8D -> Reel pipeline", flush=True)
-    print("Initializing configuration and playlist database...", flush=True)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="config.json")
+    parser.add_argument("--config", default=None, help="Configuration file (defaults to the config.json beside main.py)")
     parser.add_argument("--doctor", action="store_true")
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--ingest-only", action="store_true")
@@ -217,22 +216,82 @@ def main():
     parser.add_argument("--review", metavar="SONG")
     parser.add_argument("--backup-db", metavar="DIR")
     parser.add_argument("--restore-db", metavar="DIR")
-    parser.add_argument("--migrate-db", action="store_true")
+    parser.add_argument("--check-db", "--migrate-db", dest="check_db", action="store_true", help="Verify configured SQLite databases (legacy --migrate-db alias; does not migrate schema)")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--prepare-models", "--download-models", dest="prepare_models", action="store_true",
+                        help="Download/cache all pipeline ML models without processing songs")
     args = parser.parse_args()
 
+    print("Unified Spotify Playlist -> YT Music Audio -> Word LRC -> Whole-song 8D -> Reel pipeline", flush=True)
+    print("Loading configuration...", flush=True)
     cfg = Config.load(args.config)
-    cfg.db_dir.mkdir(parents=True, exist_ok=True)
-    pdb = PlaylistDB(cfg.db_dir / "playlist.db")
+
+    if args.prepare_models:
+        from src.common.model_cache import prepare_models
+        report = prepare_models(cfg)
+        for name, item in report.get("models", {}).items():
+            suffix = f": {item.get('error')}" if item.get("status") != "ready" else ""
+            print(f"{name}: {item.get('status')}{suffix}")
+        print(f"Model cache: {report.get('models_dir')}")
+        print(f"Preparation manifest: {cfg.path('paths.models_dir') / 'preparation_manifest.json'}")
+        return 0 if report.get("ok") else 2
+
+    # Dry-run is deliberately read-only: it never creates a DB directory, scans the
+    # Spotify API, writes snapshots, initializes schemas, or changes queue state.
+    if args.dry_run:
+        db_path = cfg.db_dir / "playlist.db" if cfg.db_dir else None
+        if not db_path or not db_path.is_file():
+            print("DRY RUN (read-only): no frozen playlist database exists; no network calls or writes were made.")
+            print(f"Configured playlist ID: {str(cfg.get('playlist.spotify_playlist_id') or '(not set)')}")
+            return
+        try:
+            uri = db_path.resolve().as_uri() + "?mode=ro"
+            with sqlite3.connect(uri, uri=True) as ro:
+                ro.row_factory = sqlite3.Row
+                playlist_id = str(cfg.get("playlist.spotify_playlist_id") or "").strip()
+                rows = ro.execute(
+                    "SELECT playlist_position,title,artist,spotify_track_id,status FROM playlist_entries "
+                    "WHERE playlist_id=? AND spotify_track_id IS NOT NULL AND is_local=0 "
+                    "AND track_type='track' AND status IN ('pending','error','needs_review') AND terminal=0 "
+                    "ORDER BY playlist_position ASC",
+                    (playlist_id,),
+                ).fetchall()
+        except sqlite3.Error as exc:
+            print(f"DRY RUN (read-only): cannot inspect the frozen playlist database: {exc}")
+            return 2
+        if args.single:
+            serial = _serial_arg(args.single)
+            with sqlite3.connect(uri, uri=True) as ro:
+                ro.row_factory = sqlite3.Row
+                rows = ro.execute(
+                    "SELECT playlist_position,title,artist,spotify_track_id,status FROM playlist_entries "
+                    "WHERE playlist_id=? AND playlist_serial=? AND spotify_track_id IS NOT NULL "
+                    "AND is_local=0 AND track_type='track' AND status IN ('pending','error','needs_review') AND terminal=0",
+                    (playlist_id, serial),
+                ).fetchall()
+        print(f"DRY RUN (read-only): {len(rows)} actionable playlist entr(y/ies); no network calls or writes were made.")
+        for row in rows:
+            print(f"playlist-position={row['playlist_position']} | {row['title']} | {row['artist']} | Spotify={row['spotify_track_id']} | status={row['status']}")
+        return
+
+    # Diagnostics and database maintenance must not instantiate the live playlist
+    # schema as a side effect (especially before a restore/backup operation).
     if args.doctor:
         raise SystemExit(0 if run_doctor(cfg) else 2)
     if args.backup_db:
-        print(f"Backup: {backup_databases(cfg.root, Path(args.backup_db))}"); return
+        print(f"Backup: {backup_databases(cfg.root, Path(args.backup_db), cfg.db_dir)}")
+        return
     if args.restore_db:
-        restore_databases(cfg.root, Path(args.restore_db)); print("Database restore completed and verified."); return
-    if args.migrate_db:
-        print(json.dumps(migrate_databases(cfg.root), indent=2)); return
+        restore_databases(cfg.root, Path(args.restore_db), cfg.db_dir)
+        print("Database restore completed and verified.")
+        return
+    if args.check_db:
+        print("Database integrity verification only (no schema migration is performed).")
+        print(json.dumps(migrate_databases(cfg.root, cfg.db_dir), indent=2))
+        return
 
+    cfg.db_dir.mkdir(parents=True, exist_ok=True)
+    pdb = PlaylistDB(cfg.db_dir / "playlist.db")
     playlist_id = str(cfg.get("playlist.spotify_playlist_id") or "").strip()
     existing_playlist = pdb.get_playlist(playlist_id) if playlist_id else None
 
@@ -259,6 +318,9 @@ def main():
         if args.reset_skipped:
             ok = reset_skipped(cfg, pdb, sdb, _serial_arg(args.reset_skipped)); print("Skipped song reset." if ok else "Song not found."); return 0 if ok else 2
 
+    if not playlist_id or playlist_id == "YOUR_SPOTIFY_PLAYLIST_ID":
+        raise SystemExit("Set playlist.spotify_playlist_id in config.json before normal processing. Use --prepare-models to cache ML models first, --doctor to inspect dependencies, or --dry-run for a read-only check.")
+
     # FIRST RUN for a new Spotify playlist is snapshot-only. Downstream DBs and
     # expensive pipeline modules are deliberately not initialized until the
     # snapshot transaction is committed.
@@ -270,23 +332,24 @@ def main():
             print("No song was processed on the first run.", flush=True)
             print("Run python main.py again to process songs one at a time in exact Spotify playlist order.", flush=True)
         return
+    if args.ingest_only:
+        print("INGEST-ONLY COMPLETE: an existing frozen Spotify snapshot was verified; no songs were processed.", flush=True)
+        return
 
     # Downstream DBs are initialized only for an already-frozen playlist.
     sdb = SongsDB(cfg.db_dir / "songs.db")
     rdb = ReelsDB(cfg.db_dir / "reels.db")
-    from src.pipeline import Pipeline
+    from src.orchestration.pipeline import Pipeline
     if args.retry_errors:
         changed = pdb.retry_errors(playlist_id); print(f"Retryable entries reset: {changed}")
     if args.resume:
-        print("RESUME MODE: using persisted DB/workspace checkpoints.", flush=True)
+        recovered = Recovery(cfg, pdb, sdb, rdb, log).reconcile(playlist_id)
+        print(f"RESUME MODE: reconciled {len(recovered)} interrupted entries; stage/workspace checkpoints will be reused.", flush=True)
     pipeline = Pipeline(cfg, pdb, sdb, rdb, log)
     entries = pdb.actionable(playlist_id)
     if args.single:
         serial = _serial_arg(args.single); entries = [e for e in entries if int(e["playlist_serial"]) == serial]
         if not entries: raise SystemExit(f"Song serial {serial} is not actionable in the current frozen Spotify playlist.")
-    if args.dry_run:
-        for e in entries: print(f"playlist-position={e['playlist_position']} | {e['title']} | Spotify={e['spotify_track_id']}")
-        return
     for e in entries:
         print(f"\nPROCESSING playlist-position={e['playlist_position']} | {e['title']} | Spotify={e['spotify_track_id']}", flush=True)
         print("Spotify metadata + artwork → YT Music audio search → lyrics → Demucs → alignment → 8D → hook → Reel", flush=True)
@@ -303,4 +366,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

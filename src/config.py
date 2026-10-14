@@ -2,19 +2,23 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from .hashing import stable_json_hash
+from src.common.hashing import stable_json_hash
 
 @dataclass
 class Config:
     root: Path
     data: dict
     config_hash: str
+    config_file: Path | None = None
 
     @classmethod
-    def load(cls, path='config.json'):
-        p = Path(path).resolve()
+    def load(cls, path=None):
+        if path is None:
+            p = (Path(__file__).resolve().parent.parent / 'config.json').resolve()
+        else:
+            p = Path(path).expanduser().resolve()
         d = json.loads(p.read_text(encoding='utf-8'))
-        c = cls(p.parent, d, stable_json_hash(d))
+        c = cls(p.parent, d, stable_json_hash(d), p)
         c.validate()
         return c
 
@@ -30,11 +34,17 @@ class Config:
         v = self.get(key, default)
         if not v:
             return None
-        p = Path(v)
+        p = Path(v).expanduser()
         return p if p.is_absolute() else self.root / p
 
     @property
-    def config_path(self): return self.root / 'config.json'
+    def config_path(self):
+        """Return the exact configuration file used to construct this object.
+
+        Directly constructed Config objects retain the historical root/config.json
+        default, while Config.load(custom_path) preserves that custom path.
+        """
+        return Path(self.config_file).resolve() if self.config_file else self.root / 'config.json'
 
     @property
     def db_dir(self): return self.path('paths.database_dir')
@@ -64,6 +74,14 @@ class Config:
             raise ValueError('youtube_offset.coarse_step_ms must be >= 1')
         if int(self.get('youtube_offset.fine_step_ms', 25)) < 1:
             raise ValueError('youtube_offset.fine_step_ms must be >= 1')
+        min_score = float(self.get('youtube_offset.min_match_score', 0.20))
+        min_margin = float(self.get('youtube_offset.min_peak_margin', 0.04))
+        if not -1.0 <= min_score <= 1.0:
+            raise ValueError('youtube_offset.min_match_score must be in [-1, 1]')
+        if not 0.0 <= min_margin <= 2.0:
+            raise ValueError('youtube_offset.min_peak_margin must be in [0, 2]')
+        if int(self.get('youtube_offset.ambiguity_window_ms', 1000)) < 0:
+            raise ValueError('youtube_offset.ambiguity_window_ms must be >= 0')
         if str(self.get('lyrics.endpoint', '/api/get')) != '/api/get':
             raise ValueError('lyrics.endpoint must remain /api/get')
         if str(self.get('duplicate_detection.identifier', 'isrc')).lower() != 'isrc':
@@ -79,3 +97,19 @@ class Config:
             raise ValueError('ytmusic.duration_tolerance_ms must be 0..10000')
         if not isinstance(self.get('spotify.enabled', True), bool):
             raise ValueError('spotify.enabled must be boolean')
+        runtime_device = str(self.get('runtime.device', 'cuda')).strip().lower()
+        fallback_device = str(self.get('runtime.fallback_device', 'cpu')).strip().lower()
+        if runtime_device != 'cpu' and not runtime_device.startswith('cuda'):
+            raise ValueError("runtime.device must be 'cpu', 'cuda', or a CUDA device such as 'cuda:0'")
+        if fallback_device != 'cpu' and not fallback_device.startswith('cuda'):
+            raise ValueError("runtime.fallback_device must be 'cpu', 'cuda', or a CUDA device such as 'cuda:0'")
+        require_cuda = self.get('runtime.require_cuda', False)
+        allow_cpu_fallback = self.get('runtime.allow_cpu_fallback', True)
+        if not isinstance(require_cuda, bool):
+            raise ValueError('runtime.require_cuda must be boolean')
+        if not isinstance(allow_cpu_fallback, bool):
+            raise ValueError('runtime.allow_cpu_fallback must be boolean')
+        if require_cuda and not runtime_device.startswith('cuda'):
+            raise ValueError('runtime.require_cuda=true requires runtime.device to be a CUDA device')
+        if require_cuda and allow_cpu_fallback:
+            raise ValueError('runtime.require_cuda and runtime.allow_cpu_fallback are contradictory; disable CPU fallback when CUDA is mandatory')

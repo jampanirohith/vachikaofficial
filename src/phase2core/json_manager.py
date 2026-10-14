@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .utils import atomic_write_bytes, canonical_json_bytes, self_hash_json, sha256_file
+from src.phase2core.utils import atomic_write_bytes, canonical_json_bytes, self_hash_json, sha256_file
 
 
 class JSONManager:

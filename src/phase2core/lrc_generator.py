@@ -3,9 +3,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .lrc_reader import format_timestamp, parse_timestamp
-from .types import AlignedWord, LyricDocument
-from .utils import atomic_write_bytes
+from src.phase2core.lrc_reader import format_timestamp, parse_timestamp
+from src.phase2core.types import AlignedWord, LyricDocument
+from src.phase2core.utils import atomic_write_bytes
 
 _TIMESTAMP_RE = re.compile(r"\[(\d+):(\d{2})(?:\.(\d{1,3}))?\]")
 

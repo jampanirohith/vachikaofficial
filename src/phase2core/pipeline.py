@@ -10,44 +10,35 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .activity_detector import ActivityDetector
-from ..model_cache import configure_model_cache
-from .audio import AudioManager
-from .chunker import Chunker
-from .ctc_aligner import CTCForcedAligner
-from .db import Database
-from .demucs_isolator import DemucsIsolator
-from .embedder import MP3Embedder
-from .json_manager import JSONManager
-from .json_updater import JSONUpdater
-from .lrc_generator import LRCGenerator
-from .lrc_reader import blank_intervals, parse_lrc
-from .merger import Merger
-from .mms_model import MMSModel
-from .scanner import Scanner
-from .telugu_normalizer import NormalizationConfig, TeluguNormalizer
-from .tokenizer import ReferenceTokenizer
-from .types import AlignedWord, ChunkAlignment, ChunkSpec, InputPackage, LyricDocument, QualityMetrics
-from .utils import (
-    atomic_copy,
-    atomic_write_bytes,
-    interval_overlap_ms,
-    json_dump_file,
-    merge_intervals,
-    now_iso,
-    percentile,
-    sha256_file,
-)
-from .validator import Validator
-from .word_builder import WordBuilder
+from src.phase2core.activity_detector import ActivityDetector
+from src.common.model_cache import configure_model_cache
+from src.phase2core.audio import AudioManager
+from src.phase2core.chunker import Chunker
+from src.phase2core.ctc_aligner import CTCForcedAligner
+from src.phase2core.db import Database
+from src.phase2core.demucs_isolator import DemucsIsolator
+from src.phase2core.embedder import MP3Embedder
+from src.phase2core.json_manager import JSONManager
+from src.phase2core.json_updater import JSONUpdater
+from src.phase2core.lrc_generator import LRCGenerator
+from src.phase2core.lrc_reader import blank_intervals, parse_lrc
+from src.phase2core.merger import Merger
+from src.phase2core.mms_model import MMSModel
+from src.phase2core.scanner import Scanner
+from src.phase2core.telugu_normalizer import NormalizationConfig, TeluguNormalizer
+from src.phase2core.tokenizer import ReferenceTokenizer
+from src.phase2core.types import AlignedWord, ChunkAlignment, ChunkSpec, InputPackage, LyricDocument, QualityMetrics
+from src.phase2core.utils import atomic_copy, atomic_write_bytes, interval_overlap_ms, json_dump_file, merge_intervals, now_iso, percentile, sha256_file
+from src.phase2core.validator import Validator
+from src.phase2core.word_builder import WordBuilder
 
 
 class Pipeline:
     def __init__(self, config, db: Database, allow_cpu_fallback: bool = True):
         self.config = config
         self.db = db
-        self.allow_cpu_fallback = bool(allow_cpu_fallback)
-        self.require_cuda = False
+        self.allow_cpu_fallback = bool(allow_cpu_fallback) and bool(config.get("runtime.allow_cpu_fallback", True))
+        self.require_cuda = bool(config.get("runtime.require_cuda", False))
         self.json_manager = JSONManager()
         self.scanner = Scanner(db, self.json_manager)
         self.audio = AudioManager(int(config.get("audio.sample_rate", 16000)))
@@ -107,7 +98,7 @@ class Pipeline:
                 allow_download=bool(self.config.get("models.allow_download", True)),
                 revision=self.config.get("models.mms_revision"),
                 require_cuda=self.require_cuda,
-                allow_cpu_fallback=True,
+                allow_cpu_fallback=self.allow_cpu_fallback,
             )
             self.model.load()
             if bool(self.config.get("runtime.print_device_banner", True)):
@@ -118,8 +109,8 @@ class Pipeline:
         """Validate runtime policy; CUDA is preferred and CPU is the automatic fallback."""
         requested = str(self.config.get("runtime.device", "cuda")).lower()
         require_cuda = bool(self.config.get("runtime.require_cuda", False))
-        allow_fallback = bool(self.config.get("runtime.allow_cpu_fallback", True))
-        if requested != "cuda" or not require_cuda or allow_fallback:
+        allow_fallback = self.allow_cpu_fallback
+        if not requested.startswith("cuda") or not require_cuda or allow_fallback:
             return
         try:
             import torch
@@ -642,7 +633,7 @@ class Pipeline:
                         str(self.config.get("runtime.fallback_device", "cpu")),
                         self.config.get("demucs.segment_seconds"),
                         require_cuda=self.require_cuda,
-                        allow_cpu_fallback=True,
+                        allow_cpu_fallback=self.allow_cpu_fallback,
                         retry_segment=self.config.get("demucs.retry_segment_seconds", 8),
                         model_cache_dir=self.config.path("paths.models_dir"),
                     )
@@ -826,7 +817,9 @@ class Pipeline:
                                     low_confidence_chunks=sum(1 for r in results if r.status == "low_confidence"),
                                     failed_chunks=len(failed_chunk_rows))
 
-            merged_words = self.merger.merge(document, results, duration_ms)
+            # Do not merge again here: finalize_output_timing() above mutates the
+            # final word objects. Re-merging would reconstruct words from chunk
+            # results and silently discard those final timing repairs.
             continuity_shifts = []
             for word in merged_words:
                 if word.reason and "global_continuity_shift_+" in word.reason:

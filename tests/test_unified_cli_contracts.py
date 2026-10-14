@@ -6,7 +6,7 @@ def test_main_snapshot_before_downstream_db_creation():
     assert 'snapshot = playlist_snapshot(cfg, pdb, log)' in src
     body=src.split('def main():',1)[1]
     snap=body.index('snapshot = playlist_snapshot')
-    pipe=body.index('from src.pipeline import Pipeline')
+    pipe=body.index('from src.orchestration.pipeline import Pipeline')
     # Downstream DBs may appear earlier only inside read-only/admin branches; the normal
     # pipeline construction must occur after the snapshot checkpoint.
     assert snap < pipe
@@ -14,15 +14,15 @@ def test_main_snapshot_before_downstream_db_creation():
 
 
 def test_pipeline_passes_full_config_to_acquisition():
-    src=Path('src/pipeline.py').read_text(encoding='utf-8')
+    src=Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
     assert 'acquire(self.cfg, work_base / "acquisition", spotify_result)' in src
     assert 'acquire(self.cfg.data' not in src
 
 
 def test_active_runtime_has_ytdlp_audio_dependency_boundary():
     root=Path('.')
-    media=(root/'src'/'ytm_media.py').read_text(encoding='utf-8')
-    acquisition=(root/'src'/'acquisition.py').read_text(encoding='utf-8')
+    media=(root/'src'/'providers'/'ytm_media.py').read_text(encoding='utf-8')
+    acquisition=(root/'src'/'providers'/'acquisition.py').read_text(encoding='utf-8')
     requirements=(root/'requirements.txt').read_text(encoding='utf-8')
     assert 'import yt_dlp' in media
     assert "'noplaylist': True" in media
