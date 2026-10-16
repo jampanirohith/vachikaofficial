@@ -7,7 +7,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
-from urllib.parse import urlparse
 
 import requests
 from requests import RequestException

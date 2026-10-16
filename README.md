@@ -19,7 +19,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Install/verify FFmpeg and FFprobe, then edit the included `config.json`. The included file is a **safe template**: it contains no Spotify credentials and has an empty playlist ID. Set `playlist.spotify_playlist_id`, add your Spotify app client ID as configured for your setup, and check the paths and render settings. `config.json.example` is the shareable baseline; do not put private credentials in it.
+Install/verify FFmpeg and FFprobe. The source package ships `config.json.example`; it intentionally does not ship a private/runtime `config.json`. The first model-preparation and diagnostic commands work from the example config without Spotify setup. Copy `config.json.example` to `config.json` before playlist processing, then set `playlist.spotify_playlist_id`, your Spotify app client ID, redirect URI and path/render settings. `config.json.example` is the shareable baseline; never put private credentials in it.
 
 Create a Spotify user token:
 
@@ -32,15 +32,17 @@ The redirect URI configured in Spotify and `config.json` must match exactly. The
 ## Recommended first-run sequence
 
 ```powershell
+python main.py --download-models
 python main.py --doctor
-python main.py --prepare-models
-python main.py --dry-run
-python main.py
+Copy-Item config.json.example config.json
+# Edit config.json and complete Spotify OAuth setup before playlist commands.
+python main.py --load-playlist
+python main.py --process-playlist --resume
 ```
 
-`--prepare-models` downloads/caches the active Telugu MMS/CTC model and adapter, HTDemucs weights, and Silero VAD model into the project-owned `models/` cache. It does not access Spotify, initialize song databases, or process audio. A per-model result is written to `models/preparation_manifest.json`; if the command exits non-zero, inspect the model failures and rerun after fixing connectivity/dependencies.
+`--download-models` (`--prepare-models` remains an alias) downloads/caches the active Telugu MMS/CTC model and adapter, HTDemucs weights, and Silero VAD model into the project-owned `models/` cache. It can run with an empty playlist ID, does not access Spotify, initialize the operational database, or process songs. A per-model result is written to `models/preparation_manifest.json`; if the command exits non-zero, inspect the model failures and rerun after fixing connectivity/dependencies. This command prepares model weights, not Python packages or FFmpeg.
 
-The first normal run for a new playlist fetches and freezes the complete Spotify playlist snapshot in exact playlist order, then exits without processing a song. A subsequent run processes actionable entries in that frozen order. Existing playlist IDs are not silently refetched.
+`--load-playlist` fetches and commits one frozen Spotify playlist snapshot in exact order; it never processes a song. `--process-playlist` refuses to fetch a new snapshot and processes only an already committed snapshot. Existing playlist IDs are not silently refetched. A plain `python main.py` retains the backwards-compatible snapshot-first behavior for a new playlist.
 
 ## Pipeline overview
 
@@ -48,46 +50,49 @@ The first normal run for a new playlist fetches and freezes the complete Spotify
 Spotify playlist snapshot (one-time, ordered)
   -> Spotify track/album/artist metadata, artwork and ISRC
   -> finalized-song ISRC duplicate gate
-  -> YT Music search + duration/title/artist matching
-  -> yt-dlp download of the exact selected YT Music URL + FFmpeg MP3
-  -> LRCLIB /api/get then /api/search for synchronized lyrics
+  -> LRCLIB /api/get then /api/search for synchronized Telugu lyrics
+  -> YT Music search + title/artist/album/duration matching for reference song audio
+  -> yt-dlp download of the exact selected YT Music audio URL
+  -> one visual YouTube video search; cache the exact selected visual URL
+  -> download audio from that exact video URL
+  -> MMS/CTC searches the same opening LRCLIB lyric phrase in both audio timelines
+  -> median of corresponding word-timestamp differences = YouTube offset
   -> source and 16 kHz audio derivation with provenance-bound caches
   -> HTDemucs stems (attempt-isolated, manifest-verified)
-  -> Telugu MMS/CTC + VAD/chunking/word alignment and timing repair
-  -> final MP3, line/word LRC, SYLT and canonical song JSON
+  -> full Telugu MMS/CTC + VAD/chunking/word alignment and timing repair
+  -> final MP3, line/word LRC, SYLT and progressively updated song JSON
   -> whole-song 8D processing
-  -> one visual YouTube search; cache the exact selected URL
-  -> selected-video reference-audio download + whole-song offset confidence check
   -> manual/deferred hook selection
   -> absolute-timeline source video trim, vertical crop, word-by-word overlay
   -> validation and artifact promotion
 ```
 
-Spotify audio is **never downloaded**. `ytmusicapi` is used for discovery; yt-dlp is used only with the already selected `music.youtube.com/watch?v=...` URL. The video/offset stage rejects low-confidence or ambiguous matches rather than always accepting the top score. Adjust `youtube_offset.min_match_score` and `min_peak_margin` only after evaluating representative matches; overly strict thresholds can route legitimate videos to review.
+Spotify supplies catalog metadata and artwork; Spotify audio is **not downloaded**. The acquired YT Music recording is the song-audio reference. For offset calculation, LRCLIB lyrics are the only transcript used: MMS/CTC searches for the same opening lyric phrase independently in the YT Music reference audio and selected YouTube video's audio, then takes the robust median of the paired word timestamp differences. There is no energy-envelope offset fallback. If the lyric anchor is ambiguous or does not meet the configured quality checks, the song is sent to `needs_review` instead of generating a potentially mis-synchronized Reel. The complete word-level LRC is still generated later for subtitles and audio processing.
 
 ## Useful commands
 
 ```powershell
 python main.py --doctor                 # dependency/runtime diagnostics
-python main.py --prepare-models          # download/cache all ML models
+python main.py --download-models         # download/cache all ML models
 python main.py --dry-run                # read-only view of actionable DB entries
 python main.py --status                 # playlist progress
 python main.py --single 12              # process one actionable playlist serial
 python main.py --resume                 # reconcile interrupted entries, then process
-python main.py --ingest-only            # verify/freeze playlist snapshot without song processing
+python main.py --load-playlist           # fetch/freeze the Spotify snapshot only
+python main.py --process-playlist        # process only a committed snapshot
 python main.py --reconcile              # recover interrupted state only
 python main.py --backup-db .\db-backup  # back up configured DB files
-python main.py --check-db               # SQLite integrity verification (not a schema migration)
+python main.py --check-db               # migrate legacy stores/schema, sync catalog and verify integrity
 pytest -q                                 # automated regression suite
 ```
 
-`--check-db` verifies SQLite integrity; the older `--migrate-db` flag remains as an alias but does not migrate schemas.
+`--check-db` is the safe upgrade entry point: it imports legacy databases and Phase-2 checkpoints into `db/vachika.db`, applies the retired-offset schema migration when needed, regenerates `db/songs.json`, and verifies database integrity. `--migrate-db` remains as a compatibility alias for this migration-and-validation command.
 
-`--dry-run` is strictly read-only: it does not create directories, initialize databases, call Spotify, or write snapshots. `--resume` reconciles interrupted states before the normal processing loop. `--ingest-only` verifies a frozen snapshot and exits without processing songs.
+`--dry-run` is strictly read-only: it does not create directories, initialize databases, call Spotify, or write snapshots. `--resume` reconciles interrupted states before the normal processing loop. Playlist ingestion is explicit via `--load-playlist`.
 
 ## Runtime files and credentials
 
-Generated databases, workspaces, model weights, logs, final songs and rendered Reels are runtime state and are ignored by Git. The replacement source ZIP intentionally contains **no live hook queue or generated song state**; `hook.queue_file` is created by the application when it first needs it. Keep `spotify_auth.json` and any yt-dlp cookie file private.
+Generated databases, workspaces, model weights, logs, final media and rendered Reels are runtime state. The active operational database is `db/vachika.db`; `db/songs.json` is an atomically regenerated, human-readable catalog export from that database and must not be edited by hand. Each song's `songs/final/<song>.json` is the detailed progressive processing/provenance manifest. Old `playlist.db`, `songs.db`, and `reels.db` stores are imported then archived during migration. Existing per-workspace `phase2.sqlite` checkpoint rows are migrated into namespaced `phase2_*` tables in `vachika.db`; their original files are retained only under `db/backups/`. No separate legacy database is created during normal operation. Keep `spotify_auth.json` and any yt-dlp cookie file private.
 
 ## Source organization
 
@@ -97,10 +102,10 @@ Active code is organized under `src/providers/`, `src/audio/`, `src/video/`, `sr
 
 - [Current project plan](PROJECT_PLAN.md)
 - [Pipeline architecture](docs/ARCHITECTURE.md)
+- [Upgrade and migration guide](docs/UPGRADING_1_5_1.md)
 - [Source code map](src/README.md)
-- [Final project audit](docs/FULL_PROJECT_AUDIT.md)
 - [Configuration reference](docs/CONFIGURATION.md)
 - [Development roadmap](docs/ROADMAP.md)
 - [Build and validation record](docs/BUILD_INFO.md)
 
-For model-download failures run `python main.py --prepare-models` again after fixing the reported dependency/network issue. For an offset rejection, inspect the per-song work state and YouTube match row, then review or replace the selected video before forcing that stage to rebuild. Do not manually copy cached stems or reference audio between songs: cache manifests bind artifacts to their source content.
+For model-download failures run `python main.py --prepare-models` again after fixing the reported dependency/network issue. For an MMS offset rejection, inspect `reference_audio/lyric_anchor.json`, `youtube/lyric_anchor.json` and `youtube/offset.json` in the song workspace, then review or replace the selected video before forcing the relevant stage to rebuild. Do not manually copy cached stems or reference audio between songs: cache manifests bind artifacts to their source content.

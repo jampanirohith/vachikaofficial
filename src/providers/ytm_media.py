@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any, Mapping
 
-from src.common.utils import run, duration_ms
+from src.common.utils import duration_ms
 
 
 class YTMusicMediaError(RuntimeError):

@@ -125,30 +125,32 @@ CREATE TABLE IF NOT EXISTS youtube_matches(
  offset_ms INTEGER,
  offset_seconds REAL,
  match_score REAL,
- waveform_score REAL,
- energy_score REAL,
- peak_valley_score REAL,
- transition_score REAL,
- reference_duration_ms INTEGER NOT NULL DEFAULT 30000,
- max_accepted_offset_ms INTEGER NOT NULL DEFAULT 30000,
+ matched_word_count INTEGER,
+ median_absolute_deviation_ms REAL,
+ p90_p10_spread_ms INTEGER,
+ reference_duration_ms INTEGER NOT NULL DEFAULT 0,
+ youtube_duration_ms INTEGER NOT NULL DEFAULT 0,
  method_version TEXT,
+ status TEXT,
  selected_at TEXT,
  FOREIGN KEY(song_key) REFERENCES songs(song_key) ON DELETE CASCADE
 );
-CREATE TABLE IF NOT EXISTS youtube_offset_candidates(
+CREATE TABLE IF NOT EXISTS youtube_offset_evidence(
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  song_key TEXT NOT NULL,
- candidate_offset_ms INTEGER NOT NULL,
- total_score REAL NOT NULL,
- waveform_score REAL,
- energy_score REAL,
- peak_valley_score REAL,
- transition_score REAL,
- accepted INTEGER NOT NULL DEFAULT 0,
- rejection_reason TEXT,
- FOREIGN KEY(song_key) REFERENCES songs(song_key) ON DELETE CASCADE
+ line_index INTEGER NOT NULL,
+ word_index INTEGER NOT NULL,
+ word_text TEXT NOT NULL,
+ reference_start_ms INTEGER NOT NULL,
+ youtube_start_ms INTEGER NOT NULL,
+ offset_ms INTEGER NOT NULL,
+ reference_confidence REAL,
+ youtube_confidence REAL,
+ accepted INTEGER NOT NULL DEFAULT 1,
+ FOREIGN KEY(song_key) REFERENCES songs(song_key) ON DELETE CASCADE,
+ UNIQUE(song_key,line_index,word_index)
 );
-CREATE INDEX IF NOT EXISTS idx_youtube_candidates_song ON youtube_offset_candidates(song_key,total_score DESC);
+CREATE INDEX IF NOT EXISTS idx_youtube_evidence_song ON youtube_offset_evidence(song_key,line_index,word_index);
 
 CREATE TABLE IF NOT EXISTS isrc_duplicates(
  id INTEGER PRIMARY KEY AUTOINCREMENT,

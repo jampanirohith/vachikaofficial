@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.phase2core.json_manager import JSONManager
-from src.phase2core.types import AlignedWord, ChunkAlignment, LyricDocument, QualityMetrics
+from src.phase2core.types import AlignedWord, LyricDocument, QualityMetrics
 
 
 class JSONUpdater:
@@ -122,6 +122,6 @@ class JSONUpdater:
             "outputs": outputs,
             "runtime": {"elapsed_seconds": round(elapsed_seconds, 3)},
             "hash_convention": {
-                "final_json_sha256": "canonical JSON content hash with this field excluded; actual file byte hash is stored in phase2.db"
+                "final_json_sha256": "canonical JSON content hash with this field excluded; actual file byte hash is stored in db/vachika.db (namespaced phase2_* tables)"
             },
         }

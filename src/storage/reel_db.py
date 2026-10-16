@@ -1,16 +1,22 @@
 from __future__ import annotations
-import sqlite3,uuid
+import sqlite3
 from pathlib import Path
 class ReelsDB:
- DB_SCHEMA_NAME="unified_reels"
- DB_SCHEMA_VERSION="4.0.0"
- DB_USER_VERSION=400
- def __init__(self,path,schema_path=None):
-  self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True);self.schema_path=Path(schema_path) if schema_path else Path(__file__).resolve().parents[2]/'database'/'reels_schema.sql';self.initialize()
+ """Reel repository whose records are stored alongside songs in ``vachika.db``."""
+ def __init__(self, path, schema_path=None):
+  self.path=Path(path)
+  if self.path.name.lower() != "vachika.db":
+   raise ValueError("Vachika uses one operational database: pass db/vachika.db. Legacy stores may only be opened by the migration subsystem.")
+  self.path.parent.mkdir(parents=True,exist_ok=True)
+  self.schema_path=Path(schema_path) if schema_path else Path(__file__).resolve().parents[2]/'database'/'reels_schema.sql'
+  self.initialize()
  def connect(self):
-  c=sqlite3.connect(self.path,timeout=60);c.row_factory=sqlite3.Row;c.execute('PRAGMA foreign_keys=ON');c.execute('PRAGMA busy_timeout=60000');c.execute('PRAGMA journal_mode=DELETE');c.execute('PRAGMA synchronous=FULL');return c
+  c=sqlite3.connect(self.path,timeout=60);c.row_factory=sqlite3.Row;c.execute('PRAGMA foreign_keys=ON');c.execute('PRAGMA busy_timeout=60000');c.execute('PRAGMA synchronous=FULL');return c
  def initialize(self):
-  with self.connect() as c:c.executescript(self.schema_path.read_text(encoding='utf-8'));c.execute('PRAGMA user_version=400');c.commit()
+  with self.connect() as c:
+   sql=self.schema_path.read_text(encoding='utf-8').replace('schema_meta','reels_schema_meta')
+   c.executescript(sql)
+   c.commit()
  def one(self,q,args=()):
   with self.connect() as c:r=c.execute(q,args).fetchone();return dict(r) if r else None
  def ensure(self,key,song_key):

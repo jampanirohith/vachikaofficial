@@ -55,8 +55,10 @@ def test_youtube_phase1_style_search_uses_exact_rule(monkeypatch):
 def test_lyrics_gate_precedes_visual_video_stage():
     from pathlib import Path
     text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
-    assert text.index('# -------- Synced line LRC --------') < text.index('# -------- Resolve YouTube visual source ONCE + full-song offset --------')
-    assert 'api/get + /api/search fallback' in text
+    assert text.index('# -------- LRCLIB lyrics BEFORE any media acquisition/search --------') < text.index('# -------- YouTube search + MMS-only offset, before the full pipeline --------')
+    assert 'get_synced(' in text
+    lrclib = Path('src/providers/lrclib.py').read_text(encoding='utf-8')
+    assert '/api/get' in lrclib and '/api/search' in lrclib
 
 
 
@@ -109,7 +111,7 @@ def test_telugu_script_gate_is_before_visual_stage():
     from pathlib import Path
     text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
     gate = text.index('contains_telugu_script(selected_lrc_text)')
-    visual = text.index('# -------- Resolve YouTube visual source ONCE + full-song offset --------')
+    visual = text.index('# -------- YouTube search + MMS-only offset, before the full pipeline --------')
     assert gate < visual
     assert 'SKIPPED_NO_TELUGU_SCRIPT_LRC' in text
 
@@ -117,5 +119,5 @@ def test_telugu_script_gate_is_before_visual_stage():
 def test_lyrics_fingerprint_includes_telugu_script_gate_version():
     from pathlib import Path
     text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
-    assert 'lrclib-get-then-search-v2-telugu-script-gate-v1' in text
-    assert 'at_least_one_U+0C00_U+0C7F_codepoint_in_complete_lrc' in text
+    assert 'lrclib-before-media-prefetch-v3-telugu-script-gate-v1' in text
+    assert 'U+0C00-U+0C7F' in text and 'required_script' in text

@@ -12,9 +12,9 @@
 ## Next improvements requiring representative data
 
 1. **8D audio quality:** run listening tests and objective checks for clipping, peak/RMS, mono compatibility, loudness and stem synchronization before changing processing defaults.
-2. **Offset accuracy:** benchmark the energy-envelope matcher on an annotated dataset containing official videos, edits, intros, remixes and live versions; use false-accept/false-reject rates to tune score/margin thresholds.
+2. **Offset accuracy:** benchmark the LRCLIB/MMS dual-audio lyric-anchor method on an annotated set of official videos, edits, intros, remixes and live versions. Measure first-anchor false matches, matched-word coverage, median absolute deviation, false-accept/false-reject rates, and offset error in milliseconds. Do not reintroduce an energy-envelope fallback; uncertain offsets must be reviewed.
 3. **Word timing quality:** add Telugu-specific reference examples for compound words, punctuation, elongated vowels, repeated phrases and music-only gaps; preserve warnings and evidence for review.
-4. **Schema migration policy:** schema DDL has a single file source for each database, but future schema changes still need explicit migration/versioning and a rollback strategy.
+4. **Schema migration policy:** each logical table group has one file-backed schema source, while all groups share `vachika.db`; schema changes still need explicit unified-database migration/versioning and rollback strategy.
 5. **Static checks:** run Ruff and mypy in the target development environment after installing `requirements-dev.txt`.
 
 Threshold/default changes should not be described as improvements until validated on reproducible examples and actual output media.

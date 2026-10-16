@@ -1,7 +1,6 @@
 from __future__ import annotations
-import json, shutil, tempfile
+import json, shutil, re
 from pathlib import Path
-from src.common.hashing import sha256_file
 from src.common.model_cache import configure_model_cache
 
 def run_alignment(cfg,work,mp3,lrc,source_json,predecoded_source,precomputed_vocals,logger):
@@ -10,19 +9,23 @@ def run_alignment(cfg,work,mp3,lrc,source_json,predecoded_source,precomputed_voc
  from src.phase2core.pipeline import Pipeline as P2Pipeline
  from src.phase2core.types import InputPackage
  base=Path(work)/'alignment';base.mkdir(parents=True,exist_ok=True)
- inp=base/'input';inp.mkdir(exist_ok=True);final=base/'final';final.mkdir(exist_ok=True);db=base/'db';db.mkdir(exist_ok=True)
+ inp=base/'input';inp.mkdir(exist_ok=True);final=base/'final';final.mkdir(exist_ok=True)
  models=configure_model_cache(cfg.path('paths.models_dir'))
  local_cfg=json.loads(Path(cfg.config_path).read_text(encoding='utf-8'))
- local_cfg['paths']={'original_dir':str(inp),'final_dir':str(final),'temp_dir':str(base/'temp'),'db_dir':str(db),'models_dir':str(models)}
+ local_cfg['paths']={'original_dir':str(inp),'final_dir':str(final),'temp_dir':str(base/'temp'),'db_dir':str(cfg.db_dir),'models_dir':str(models)}
  local_cfg['runtime']={**local_cfg.get('runtime',{}),'device':cfg.get('runtime.device','cuda'),'fallback_device':cfg.get('runtime.fallback_device','cpu'),'require_cuda':bool(cfg.get('runtime.require_cuda',False)),'allow_cpu_fallback':bool(cfg.get('runtime.allow_cpu_fallback',True))}
  local_cfg['models']=dict(local_cfg.get('models',{}));local_cfg['models']['demucs_model']=cfg.get('demucs.model','htdemucs')
  local_cfg['audio']=dict(local_cfg.get('audio',{}));local_cfg['audio']['predecoded_source_16k']=str(predecoded_source)
  local_cfg['demucs']={**local_cfg.get('demucs',{}),'precomputed_vocals_path':str(precomputed_vocals),'precomputed_vocals_device':'unified_shared_demucs'}
  local_cfg['project']['pipeline_version']='unified-phase2-adapter-1.3.0'
  cpath=base/'config.json';cpath.write_text(json.dumps(local_cfg,ensure_ascii=False,indent=2),encoding='utf-8')
- p2= p2_load(cpath); dbobj=Database(p2.path('paths.db_dir')/'phase2.sqlite')
+ p2= p2_load(cpath); dbobj=Database(p2.path('paths.db_dir')/'vachika.db', namespace='phase2_')
  for src,target in ((mp3,inp/'master.mp3'),(lrc,inp/'master.lrc'),(source_json,inp/'master.json')):shutil.copy2(src,target)
- package=InputPackage('master',inp/'master.mp3',inp/'master.lrc',inp/'master.json')
+ # Phase-2 used to have a private SQLite file for every song, so 'master' was
+ # globally safe. It is now a shared database; a stable per-song basename prevents
+ # one song from resetting another song's Phase-2 checkpoints.
+ p2_basename = re.sub(r'[^A-Za-z0-9_.-]+', '_', Path(work).parent.name)[:150] or 'song'
+ package=InputPackage(p2_basename,inp/'master.mp3',inp/'master.lrc',inp/'master.json')
  pipe=P2Pipeline(p2,dbobj,allow_cpu_fallback=bool(cfg.get('runtime.allow_cpu_fallback',True)))
  try: result=pipe.process(package,force=False,keep_temp=True)
  finally: dbobj.close()

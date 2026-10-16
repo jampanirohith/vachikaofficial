@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -12,10 +13,13 @@ SCHEMA_VERSION = 1
 
 
 class Database:
-    def __init__(self, path: Path):
-        self.path = path
+    def __init__(self, path: Path, namespace: str = ""):
+        self.path = Path(path)
+        self.namespace = str(namespace or "")
+        if self.namespace and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", self.namespace):
+            raise ValueError("Invalid database table namespace")
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(path, timeout=60, isolation_level=None)
+        self.conn = sqlite3.connect(self.path, timeout=60, isolation_level=None)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.execute("PRAGMA journal_mode=WAL")
@@ -26,15 +30,28 @@ class Database:
     def close(self) -> None:
         self.conn.close()
 
+    def _rewrite_sql(self, sql: str) -> str:
+        if not self.namespace:
+            return sql
+        # Phase-2 has a legacy table named `songs`, which collides with the unified
+        # catalog. Namespace all Phase-2 tables and indexes in the shared DB.
+        names = ("schema_meta", "songs", "chunks", "words", "instrumental_sections", "processing_log", "runs")
+        out = str(sql)
+        for name in names:
+            out = re.sub(rf"\b{re.escape(name)}\b", self.namespace + name, out)
+        out = re.sub(r"\b(idx_[A-Za-z0-9_]+)", lambda m: self.namespace + m.group(1), out)
+        return out
+
     def initialize(self) -> None:
-        self.conn.executescript("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
-        current = self.conn.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()
+        meta_table = self.namespace + "schema_meta"
+        self.conn.execute(f"CREATE TABLE IF NOT EXISTS {meta_table} (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
+        current = self.conn.execute(f"SELECT value FROM {meta_table} WHERE key='version'").fetchone()
         if current is None:
             schema = Path(__file__).resolve().parent.parent / "sql" / "001_initial.sql"
             if not schema.is_file():
                 raise FileNotFoundError(f"Phase-2 database schema 001_initial.sql not found: {schema}")
-            self.conn.executescript(schema.read_text(encoding="utf-8"))
-            self.conn.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES('version',?)", (str(SCHEMA_VERSION),))
+            self.conn.executescript(self._rewrite_sql(schema.read_text(encoding="utf-8")))
+            self.conn.execute(f"INSERT OR REPLACE INTO {meta_table}(key,value) VALUES('version',?)", (str(SCHEMA_VERSION),))
         elif int(current["value"]) != SCHEMA_VERSION:
             raise RuntimeError(f"Unsupported DB schema version: {current['value']} expected {SCHEMA_VERSION}")
 
@@ -49,10 +66,10 @@ class Database:
             raise
 
     def execute(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Cursor:
-        return self.conn.execute(sql, params)
+        return self.conn.execute(self._rewrite_sql(sql), params)
 
     def executemany(self, sql: str, seq: list[tuple[Any, ...]]) -> None:
-        self.conn.executemany(sql, seq)
+        self.conn.executemany(self._rewrite_sql(sql), seq)
 
     def get_song(self, song_id: int) -> sqlite3.Row | None:
         return self.execute("SELECT * FROM songs WHERE id=?", (song_id,)).fetchone()

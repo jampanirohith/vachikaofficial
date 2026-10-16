@@ -1,7 +1,7 @@
 from __future__ import annotations
-import hashlib, json, math, os, re, subprocess, time, uuid
+import hashlib, json, os, re, subprocess, time, uuid
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 class Phase3Error(RuntimeError):
     def __init__(self, code: str, message: str, *, details: dict[str, Any] | None = None):

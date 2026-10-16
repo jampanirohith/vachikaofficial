@@ -5,7 +5,7 @@ from src.orchestration.hook import parse_timecode, validate
 
 
 def test_spotify_playlist_order_is_exact(tmp_path):
-    p=PlaylistDB(tmp_path/'playlist.db')
+    p=PlaylistDB(tmp_path/'vachika.db')
     p.ingest_snapshot('P','P','u',None,[
         {'spotify_track_id':'A','playlist_position':1,'title':'A','track_type':'track','is_local':False},
         {'spotify_track_id':'B','playlist_position':2,'title':'B','track_type':'track','is_local':False},
@@ -28,13 +28,14 @@ def test_current_project_plan_matches_active_pipeline_contract():
     assert '**spotify audio:** never downloaded' in text
     assert 'yt-dlp' in text
     assert 'ytmusicapi' in text
-    assert 'current release authority — 1.4.30-src-organized' in text
+    assert 'current release authority — 1.5.1-unified-db-mms-offset-v3' in text
     assert 'duration-compatible recording' in text
     assert 'isrc duplicate gate' in text
-    assert 'full-song energy envelope' in text
+    assert 'mms/ctc' in text and 'energy-envelope matching is not used as a fallback' in text
 
 
-def test_reels_user_version_400(tmp_path):
+def test_reels_repository_uses_shared_schema_metadata(tmp_path):
     from src.storage.reel_db import ReelsDB
-    db=ReelsDB(tmp_path/'reels.db')
-    with db.connect() as c: assert c.execute('PRAGMA user_version').fetchone()[0]==400
+    db=ReelsDB(tmp_path/'vachika.db')
+    with db.connect() as c:
+        assert c.execute("SELECT value FROM reels_schema_meta WHERE key='schema_name'").fetchone()[0] == 'unified_reels'

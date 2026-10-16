@@ -6,7 +6,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from src.common.gpu import cuda_available, resolve_device
+from src.common.gpu import cuda_available
 from src.common.hashing import sha256_file
 from src.common.utils import run
 from src.common.model_cache import configure_model_cache

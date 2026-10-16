@@ -1,0 +1,1144 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-10-15T04:48:09.680901+00:00",
+  "authority": "db/vachika.db (songs.json is a generated catalog export; do not edit directly)",
+  "song_count": 16,
+  "songs": [
+    {
+      "song_key": "1_5NSXAVJqe7Zh66PlRhgRvw",
+      "spotify": {
+        "track_id": "5NSXAVJqe7Zh66PlRhgRvw",
+        "track_url": "https://open.spotify.com/track/5NSXAVJqe7Zh66PlRhgRvw",
+        "album_id": "2ACsn6oxKAx8E3SDZOfjE3",
+        "isrc": "INS172002005"
+      },
+      "title": "Chinuku Chinuku Andelatho - From \"Subhalagnam\"",
+      "artists": "S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra",
+      "album": "Chinuku Chinuku Andelatho (From \"Subhalagnam\")",
+      "duration_ms": 229000,
+      "details": {
+        "album_artist": "S.V.Krishna Reddy",
+        "release_date": "1994",
+        "track_number": 1,
+        "disc_number": 1,
+        "isrc": "INS172002005",
+        "spotify_album_id": "2ACsn6oxKAx8E3SDZOfjE3",
+        "spotify_track_uri": "spotify:track:5NSXAVJqe7Zh66PlRhgRvw",
+        "explicit": 0,
+        "album_type": "single",
+        "album_release_precision": null,
+        "album_total_tracks": 1,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 1,
+        "serial": 1,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "completed",
+        "pipeline": "FINALIZED",
+        "quality": "passed",
+        "terminal": true,
+        "terminal_reason": "HOOK_SELECTION_DEFERRED"
+      },
+      "sources": {
+        "ytmusic_audio_video_id": "SzCF0B9PzY4",
+        "ytmusic_audio_url": "https://music.youtube.com/watch?v=SzCF0B9PzY4",
+        "youtube_video_id": "4i7YaDBIHIs",
+        "youtube_video_url": "https://www.youtube.com/watch?v=4i7YaDBIHIs",
+        "youtube_offset_ms": 5800,
+        "youtube_offset_method": "mms-lrclib-dual-audio-offset-v3",
+        "youtube_offset_confidence": 1.0,
+        "youtube_offset_status": "accepted",
+        "lyrics_provider": "lrclib",
+        "lyrics_status": "synced"
+      },
+      "paths": {
+        "source_audio": "temp/1_5NSXAVJqe7Zh66PlRhgRvw/acquisition/master.mp3",
+        "source_metadata": "temp/1_5NSXAVJqe7Zh66PlRhgRvw/acquisition/master.info.json",
+        "synced_lrc": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra.lrc",
+        "wordlevel_lrc": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_wordlevel.lrc",
+        "song_audio": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra.mp3",
+        "audio_8d": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_8D.mp3",
+        "song_json": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra.json",
+        "youtube_reference_audio": "temp/1_5NSXAVJqe7Zh66PlRhgRvw/source_b0fd89ea4bc36bd9/youtube/reference_audio.wav",
+        "reel_video": "reels/generated/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_reel.mp4",
+        "reel_json": "reels/generated/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_reel.json"
+      },
+      "record_path": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra.json",
+      "hashes": {
+        "source_audio_sha256": "b0fd89ea4bc36bd91fe0ae0b4cd80a701d3d4d335f3c63e87fa86978501b1114",
+        "synced_lrc_sha256": "be0a012e65463e486fe8fdb9814362bce3be017555130661d5388485a203758b",
+        "source_metadata_sha256": "4ad2c49a86eee6d17735b03d793ab9989069e66c52bf53e413978855cef65829"
+      }
+    },
+    {
+      "song_key": "2_1fJDaMZnbiXG4e8MsFhSDp",
+      "spotify": {
+        "track_id": "1fJDaMZnbiXG4e8MsFhSDp",
+        "track_url": "https://open.spotify.com/track/1fJDaMZnbiXG4e8MsFhSDp",
+        "album_id": "2boQlWu4auADXaoNiuS34E",
+        "isrc": "INA090104020"
+      },
+      "title": "Abbanee",
+      "artists": "S. P. Balasubrahmanyam, K. S. Chithra",
+      "album": "Jagadekaveerudu Athiloka Sundari",
+      "duration_ms": 293942,
+      "details": {
+        "album_artist": "Ilaiyaraaja",
+        "release_date": "1990-05-09",
+        "track_number": 2,
+        "disc_number": 1,
+        "isrc": "INA090104020",
+        "spotify_album_id": "2boQlWu4auADXaoNiuS34E",
+        "spotify_track_uri": "spotify:track:1fJDaMZnbiXG4e8MsFhSDp",
+        "explicit": 0,
+        "album_type": "album",
+        "album_release_precision": null,
+        "album_total_tracks": 7,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 2,
+        "serial": 2,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "completed",
+        "pipeline": "FINALIZED",
+        "quality": "passed",
+        "terminal": true,
+        "terminal_reason": "HOOK_SELECTION_DEFERRED"
+      },
+      "sources": {
+        "ytmusic_audio_video_id": "gFIASqhTBPs",
+        "ytmusic_audio_url": "https://music.youtube.com/watch?v=gFIASqhTBPs",
+        "youtube_video_id": "zloL0fdu5aM",
+        "youtube_video_url": "https://www.youtube.com/watch?v=zloL0fdu5aM",
+        "youtube_offset_ms": -4330,
+        "youtube_offset_method": "mms-lrclib-dual-audio-offset-v3",
+        "youtube_offset_confidence": 0.825,
+        "youtube_offset_status": "accepted",
+        "lyrics_provider": "lrclib",
+        "lyrics_status": "synced"
+      },
+      "paths": {
+        "source_audio": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/acquisition/master.mp3",
+        "source_metadata": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/acquisition/master.info.json",
+        "synced_lrc": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.lrc",
+        "wordlevel_lrc": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_wordlevel.lrc",
+        "song_audio": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.mp3",
+        "audio_8d": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_8D.mp3",
+        "song_json": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.json",
+        "youtube_reference_audio": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/source_5749716748029148/youtube/reference_audio.wav",
+        "reel_video": "reels/generated/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_reel.mp4",
+        "reel_json": "reels/generated/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_reel.json"
+      },
+      "record_path": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.json",
+      "hashes": {
+        "source_audio_sha256": "574971674802914836776d82a4b75e0303b300ada1cf0521676657b5d5d23634",
+        "synced_lrc_sha256": "9d6a716c90a6dee6b4650f455f48b163cbd03cb479f2321a76fd132608eeab10",
+        "source_metadata_sha256": "1da51f0572675d09c0c9c92e21c5799edcadea2bc966709f09e1f314eb9312e0"
+      }
+    },
+    {
+      "song_key": "3_6D7qZFYHS3L81jcAfEz0ob",
+      "spotify": {
+        "track_id": "6D7qZFYHS3L81jcAfEz0ob",
+        "track_url": "https://open.spotify.com/track/6D7qZFYHS3L81jcAfEz0ob",
+        "album_id": "53g6M7ke2tnSuVNy1OwgwJ",
+        "isrc": "INA090203622"
+      },
+      "title": "Singarala",
+      "artists": "S. P. Balasubrahmanyam, K. J. Yesudas",
+      "album": "Dalapathi",
+      "duration_ms": 328439,
+      "details": {
+        "album_artist": "Ilaiyaraaja",
+        "release_date": "1991-11-01",
+        "track_number": 1,
+        "disc_number": 1,
+        "isrc": "INA090203622",
+        "spotify_album_id": "53g6M7ke2tnSuVNy1OwgwJ",
+        "spotify_track_uri": "spotify:track:6D7qZFYHS3L81jcAfEz0ob",
+        "explicit": 0,
+        "album_type": "album",
+        "album_release_precision": null,
+        "album_total_tracks": 7,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 3,
+        "serial": 3,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "processing",
+        "pipeline": "SOURCE_READY",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": "PROCESSING"
+      },
+      "sources": {
+        "ytmusic_audio_video_id": "_iyRFJya_dY",
+        "ytmusic_audio_url": "https://music.youtube.com/watch?v=_iyRFJya_dY",
+        "youtube_video_id": "uerXXfXCq9c",
+        "youtube_video_url": "https://www.youtube.com/watch?v=uerXXfXCq9c",
+        "youtube_offset_ms": 570,
+        "youtube_offset_method": "mms-lrclib-dual-audio-offset-v3",
+        "youtube_offset_confidence": 0.8625,
+        "youtube_offset_status": "accepted",
+        "lyrics_provider": "lrclib",
+        "lyrics_status": "synced"
+      },
+      "paths": {
+        "source_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.mp3",
+        "source_metadata": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.info.json",
+        "synced_lrc": "temp/3_6D7qZFYHS3L81jcAfEz0ob/lyrics/source.lrc",
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.json",
+        "youtube_reference_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/source_201e41a7cadd53a4/youtube/reference_audio.wav",
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.json",
+      "hashes": {
+        "source_audio_sha256": "201e41a7cadd53a49ab52821b9b9a403f3b7426a437e1a5396774c3a2a4fe91e",
+        "synced_lrc_sha256": "585f1f561645b5e88d180d120721262053f2e13c7a7660d2a86f856310db2604",
+        "source_metadata_sha256": "7a901812c74fa4ee86ff0f958dcbbd77053d6173d30a710317195b4c67c33466"
+      }
+    },
+    {
+      "song_key": "4_4M8dRVFWKMfh7hPzGCYxra",
+      "spotify": {
+        "track_id": "4M8dRVFWKMfh7hPzGCYxra",
+        "track_url": "https://open.spotify.com/track/4M8dRVFWKMfh7hPzGCYxra",
+        "album_id": "5CcuoUl0yhFPRLMohxwvIt",
+        "isrc": "INA090209069"
+      },
+      "title": "Poovullo Daagunna",
+      "artists": "Unnikrishnan, Sujatha",
+      "album": "Jeans",
+      "duration_ms": 415503,
+      "details": {
+        "album_artist": "A.R. Rahman",
+        "release_date": "1999-10-30",
+        "track_number": 2,
+        "disc_number": 1,
+        "isrc": "INA090209069",
+        "spotify_album_id": "5CcuoUl0yhFPRLMohxwvIt",
+        "spotify_track_uri": "spotify:track:4M8dRVFWKMfh7hPzGCYxra",
+        "explicit": 0,
+        "album_type": "single",
+        "album_release_precision": null,
+        "album_total_tracks": 6,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 4,
+        "serial": 4,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "error",
+        "pipeline": "error",
+        "quality": "failed",
+        "terminal": false,
+        "terminal_reason": "LRCLIB request failed for /search"
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": "songs/final/004_Poovullo Daagunna - Unnikrishnan, Sujatha.json",
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": "songs/final/004_Poovullo Daagunna - Unnikrishnan, Sujatha.json",
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "5_39RE07kcHln5DjnerRCaKy",
+      "spotify": {
+        "track_id": "39RE07kcHln5DjnerRCaKy",
+        "track_url": "https://open.spotify.com/track/39RE07kcHln5DjnerRCaKy",
+        "album_id": "7AI6F6RpmTlmJ09EOhOUw4",
+        "isrc": "INS181415265"
+      },
+      "title": "Na Cheli Rojave",
+      "artists": "S. P. Balasubrahmanyam, Sujatha",
+      "album": "Roja",
+      "duration_ms": 296472,
+      "details": {
+        "album_artist": "A.R. Rahman",
+        "release_date": "2014-08-01",
+        "track_number": 3,
+        "disc_number": 1,
+        "isrc": "INS181415265",
+        "spotify_album_id": "7AI6F6RpmTlmJ09EOhOUw4",
+        "spotify_track_uri": "spotify:track:39RE07kcHln5DjnerRCaKy",
+        "explicit": 0,
+        "album_type": "single",
+        "album_release_precision": null,
+        "album_total_tracks": 6,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 5,
+        "serial": 5,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "error",
+        "pipeline": "error",
+        "quality": "failed",
+        "terminal": false,
+        "terminal_reason": "LRCLIB request failed for /get"
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": "songs/final/005_Na Cheli Rojave - S. P. Balasubrahmanyam, Sujatha.json",
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": "songs/final/005_Na Cheli Rojave - S. P. Balasubrahmanyam, Sujatha.json",
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "6_5jyHsyGvIxawivb6enu5H3",
+      "spotify": {
+        "track_id": "5jyHsyGvIxawivb6enu5H3",
+        "track_url": "https://open.spotify.com/track/5jyHsyGvIxawivb6enu5H3",
+        "album_id": "50iJYe6QgTwfB7VRzs1yRZ",
+        "isrc": "INUM70501557"
+      },
+      "title": "Kannanule - Bombay / Soundtrack Version",
+      "artists": "K. S. Chithra",
+      "album": "Bombay",
+      "duration_ms": 355587,
+      "details": {
+        "album_artist": "Various Artists",
+        "release_date": "1994-01-01",
+        "track_number": 1,
+        "disc_number": 1,
+        "isrc": "INUM70501557",
+        "spotify_album_id": "50iJYe6QgTwfB7VRzs1yRZ",
+        "spotify_track_uri": "spotify:track:5jyHsyGvIxawivb6enu5H3",
+        "explicit": 0,
+        "album_type": "compilation",
+        "album_release_precision": null,
+        "album_total_tracks": 6,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 6,
+        "serial": 6,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "processing",
+        "pipeline": "SOURCE_READY",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": "PROCESSING"
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": "lrclib",
+        "lyrics_status": "synced"
+      },
+      "paths": {
+        "source_audio": "temp/6_5jyHsyGvIxawivb6enu5H3/acquisition/master.mp3",
+        "source_metadata": "temp/6_5jyHsyGvIxawivb6enu5H3/acquisition/master.info.json",
+        "synced_lrc": "temp/6_5jyHsyGvIxawivb6enu5H3/lyrics/source.lrc",
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": "songs/final/006_Kannanule - Bombay _ Soundtrack Version - K. S. Chithra.json",
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": "songs/final/006_Kannanule - Bombay _ Soundtrack Version - K. S. Chithra.json",
+      "hashes": {
+        "source_audio_sha256": "02c70d5f464ba184bf8fe57587871057f701a650ee33a6e9a9e02305a7c79f6f",
+        "synced_lrc_sha256": "e90be0c76c7bda32a6fd99d81234ad407c80d21bc1e9e2d3a0a93207d382a335",
+        "source_metadata_sha256": "1e2c2dd9e0a86b2992df31aea721692f556a5a1caf8686ea3bed816f12d32ff3"
+      }
+    },
+    {
+      "song_key": "7_08Zh9GFP2TKItpgcfRSHUV",
+      "spotify": {
+        "track_id": "08Zh9GFP2TKItpgcfRSHUV",
+        "track_url": "https://open.spotify.com/track/08Zh9GFP2TKItpgcfRSHUV",
+        "album_id": null,
+        "isrc": "INS189610137"
+      },
+      "title": "Vennelave Vennelave",
+      "artists": "Hariharan, Sadhana Sargam",
+      "album": "Merupu Kalalu",
+      "duration_ms": 359773,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INS189610137",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 7,
+        "serial": 7,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "8_6BDtczWG8QhZz5RPLpNcgB",
+      "spotify": {
+        "track_id": "6BDtczWG8QhZz5RPLpNcgB",
+        "track_url": "https://open.spotify.com/track/6BDtczWG8QhZz5RPLpNcgB",
+        "album_id": null,
+        "isrc": "INUM70501555"
+      },
+      "title": "Adi Arabi Kadalandam - Bombay / Soundtrack Version",
+      "artists": "Remo Fernandes",
+      "album": "Bombay",
+      "duration_ms": 316533,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INUM70501555",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 8,
+        "serial": 8,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "9_7yPeu0DTn2eWgO2FmHCks0",
+      "spotify": {
+        "track_id": "7yPeu0DTn2eWgO2FmHCks0",
+        "track_url": "https://open.spotify.com/track/7yPeu0DTn2eWgO2FmHCks0",
+        "album_id": null,
+        "isrc": "INA090209150"
+      },
+      "title": "Nelluri Nerajana",
+      "artists": "Hariharan, Mahalakshmi Iyer",
+      "album": "Oke Okkadu",
+      "duration_ms": 404106,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INA090209150",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 9,
+        "serial": 9,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "10_3VxHdPL8DFhCboxegX2WKa",
+      "spotify": {
+        "track_id": "3VxHdPL8DFhCboxegX2WKa",
+        "track_url": "https://open.spotify.com/track/3VxHdPL8DFhCboxegX2WKa",
+        "album_id": null,
+        "isrc": "INA090203528"
+      },
+      "title": "O Prema Na Prema(Male)",
+      "artists": "S. P. Balasubrahmanyam",
+      "album": "Chanti-Old",
+      "duration_ms": 180558,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INA090203528",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 10,
+        "serial": 10,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "11_6yT2Z5MMUYK7XevyBWo84O",
+      "spotify": {
+        "track_id": "6yT2Z5MMUYK7XevyBWo84O",
+        "track_url": "https://open.spotify.com/track/6yT2Z5MMUYK7XevyBWo84O",
+        "album_id": null,
+        "isrc": "INA090104021"
+      },
+      "title": "Priyatama",
+      "artists": "S. P. Balasubrahmanyam, S. Janaki",
+      "album": "Jagadekaveerudu Athiloka Sundari",
+      "duration_ms": 358028,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INA090104021",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 11,
+        "serial": 11,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "12_4VbRCU7Hc0PrRZ2Wj1rr9O",
+      "spotify": {
+        "track_id": "4VbRCU7Hc0PrRZ2Wj1rr9O",
+        "track_url": "https://open.spotify.com/track/4VbRCU7Hc0PrRZ2Wj1rr9O",
+        "album_id": null,
+        "isrc": "INA090104164"
+      },
+      "title": "Anjali Anjali",
+      "artists": "Kousalya, Lalitha, Subhasri, Prasanna, Sharmila, Jama, R. Sulochana, B. Padma, R. Suchitra, R. Mahalakshmi, S. N. Hemamalini, R.Kalpana",
+      "album": "Anjali",
+      "duration_ms": 378300,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INA090104164",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 12,
+        "serial": 12,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "13_13bbD0XFPAvL2GDF1j9VjK",
+      "spotify": {
+        "track_id": "13bbD0XFPAvL2GDF1j9VjK",
+        "track_url": "https://open.spotify.com/track/13bbD0XFPAvL2GDF1j9VjK",
+        "album_id": null,
+        "isrc": "INA090930736"
+      },
+      "title": "Kannepettaro Kannu Kottaro",
+      "artists": "S. P. Balasubrahmanyam, K. S. Chithra",
+      "album": "Hello Brother",
+      "duration_ms": 281039,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INA090930736",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 13,
+        "serial": 13,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "14_6OlRtuNOOPFcXdBww7A3Sq",
+      "spotify": {
+        "track_id": "6OlRtuNOOPFcXdBww7A3Sq",
+        "track_url": "https://open.spotify.com/track/6OlRtuNOOPFcXdBww7A3Sq",
+        "album_id": null,
+        "isrc": "INA090209115"
+      },
+      "title": "Padavi Datani",
+      "artists": "Ramana Gogula, Sunitha",
+      "album": "Thammudu",
+      "duration_ms": 276767,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INA090209115",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 14,
+        "serial": 14,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "15_3dgyYMieHT1BDCnEwzQPp1",
+      "spotify": {
+        "track_id": "3dgyYMieHT1BDCnEwzQPp1",
+        "track_url": "https://open.spotify.com/track/3dgyYMieHT1BDCnEwzQPp1",
+        "album_id": null,
+        "isrc": "INS181410587"
+      },
+      "title": "Jaamurathiri",
+      "artists": "S. P. Balasubrahmanyam, K. S. Chithra",
+      "album": "Kshana Kshanam",
+      "duration_ms": 301557,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INS181410587",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 15,
+        "serial": 15,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "16_7jbNMW04ju92tfMsSwIJyi",
+      "spotify": {
+        "track_id": "7jbNMW04ju92tfMsSwIJyi",
+        "track_url": "https://open.spotify.com/track/7jbNMW04ju92tfMsSwIJyi",
+        "album_id": null,
+        "isrc": "INS189610107"
+      },
+      "title": "Kannullo Nee Roopame",
+      "artists": "Hariharan, K. S. Chithra",
+      "album": "Ninne Pelladatha",
+      "duration_ms": 321000,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INS189610107",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 16,
+        "serial": 16,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": null,
+        "reel_json": null
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    }
+  ]
+}

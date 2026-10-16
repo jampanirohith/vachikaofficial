@@ -8,7 +8,7 @@ import soundfile as sf
 from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 
-from src.phase2core.utils import atomic_write_bytes, require_binary, run_command
+from src.phase2core.utils import require_binary, run_command
 
 
 class AudioManager:

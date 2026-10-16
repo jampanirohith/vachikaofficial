@@ -3,14 +3,12 @@ from __future__ import annotations
 import copy
 import json
 import logging
-import os
 import re
 import shutil
 import time
-from dataclasses import replace
 from pathlib import Path
 
-from src.providers.acquisition import AcquisitionError, acquire, normalized_from_acquisition
+from src.providers.acquisition import acquire, normalized_from_acquisition
 from src.audio.source_audio import prepare_source, prepare_full_source
 from src.storage.reel_db import ReelsDB
 from src.storage.song_db import SongsDB
@@ -21,13 +19,14 @@ from src.orchestration.hook import prompt_or_existing
 from src.orchestration.hook import fmt_ms
 from src.common.utils import parse_timecode
 from src.storage.json_record import build as build_json, write as write_json
+from src.storage.song_catalog import sync_songs_json
 from src.providers.lrclib import LRCLIBClient, LyricsResult, contains_telugu_script
 from src.common.metadata import NormalizedMetadata
 from src.audio.mp3_metadata import embed
 from src.video.reel import build_reel
 from src.providers.spotify import SpotifyClient, SpotifyError, apply_spotify_metadata
 from src.common.utils import atomic_write_json, duration_ms, safe_name
-from src.video.synchronization import find_offset
+from src.video.lyric_offset import find_reference_lyric_anchor, find_youtube_lyric_anchor, calculate_offset_from_anchors, METHOD_VERSION as MMS_OFFSET_METHOD_VERSION
 from src.video.youtube_source import download_audio, select_video
 from src.audio.demucs import DemucsRunner
 from src.common.gpu import cuda_available
@@ -66,11 +65,58 @@ class Pipeline:
         value = f"{int(serial):03d}_{title} - {artist}".strip().rstrip(" ._")
         return value[:180] or f"{int(serial):03d}_untitled"
 
+    def _sync_catalog(self):
+        try:
+            sync_songs_json(self.cfg, self.playlist_db, self.songs_db, self.reels_db)
+        except Exception as exc:
+            # The DB transaction is authoritative; a failed derived export is recorded
+            # as a warning and retried on the next stage/CLI invocation.
+            self.logger.warning("songs.json refresh failed; it will be regenerated later: %s", exc)
+
+    @staticmethod
+    def _merge_json_dict(base, patch):
+        """Recursively merge manifest patches while letting the newest values win."""
+        if not isinstance(base, dict):
+            base = {}
+        result = copy.deepcopy(base)
+        for key, value in (patch or {}).items():
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = Pipeline._merge_json_dict(result[key], value)
+            else:
+                result[key] = copy.deepcopy(value)
+        return result
+
+    def _write_progress_manifest(self, path: Path, patch: dict):
+        """Write a valid versioned per-song manifest at meaningful stage boundaries."""
+        path = Path(path)
+        existing = {}
+        if path.is_file():
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    existing = loaded
+            except Exception:
+                existing = {}
+        payload = self._merge_json_dict(existing, patch)
+        unified = payload.setdefault("unified_pipeline", {})
+        unified.setdefault("status", "PROCESSING")
+        unified.setdefault("outputs", {})["json"] = display_path(path, self.cfg.root)
+        provenance = unified.setdefault("provenance", {})
+        provenance.setdefault("config_sha256", self.cfg.config_hash)
+        provenance.setdefault("pipeline_version", str(self.cfg.get("project.pipeline_version", self.cfg.get("project.version", "unknown"))))
+        try:
+            write_json(path, payload, project_root=self.cfg.root)
+            self._sync_catalog()
+        except Exception as exc:
+            # A reporting write must never hide the processing failure that triggered it.
+            self.logger.warning("Per-song progress manifest update failed for %s: %s", path, exc)
+
     def _stage(self, key, name, dep, artifact=None):
         return self.songs_db.stage_start(key, name, dep, artifact)
 
     def _finish(self, run_id, status, artifact=None, sha=None, reused=0, err=None):
         self.songs_db.stage_finish(run_id, status, artifact, sha, reused, error_message=err)
+        self._sync_catalog()
 
     def _metadata_dict(self, metadata):
         return {k: copy.deepcopy(getattr(metadata, k)) for k in metadata.__dataclass_fields__ if k != "raw"}
@@ -218,7 +264,7 @@ class Pipeline:
             if answer in {"2", "keep_current", "c"}:
                 return "keep_current"
 
-    def _record_skip_no_lrc(self, key, entry, metadata, acq, info, spotify_result, spotify_state, name, reason):
+    def _record_skip_no_lrc(self, key, entry, metadata, acq, info, spotify_result, spotify_state, name, reason, status_code="SKIPPED_NO_SYNCED_LRC"):
         self.cfg.skipped_dir.mkdir(parents=True, exist_ok=True)
         final_mp3 = self.cfg.skipped_dir / f"{name}.mp3"
         final_json = self.cfg.skipped_dir / f"{name}.json"
@@ -241,8 +287,8 @@ class Pipeline:
                 "query": acq.get("ytm_query"),
                 "candidate": acq.get("ytm_candidate"),
             },
-            lyrics={"status": "SKIPPED_NO_SYNCED_LRC", "reason": reason},
-            status="SKIPPED_NO_SYNCED_LRC",
+            lyrics={"provider": "lrclib", "status": status_code, "reason": reason},
+            status=status_code,
             provenance={
                 "source_mp3_sha256": sha256_file(acq["mp3"]),
                 "spotify_isrc": metadata.isrc,
@@ -250,16 +296,37 @@ class Pipeline:
                 "pipeline_version": str(self.cfg.get("project.version", "unknown")),
             },
         )
-        payload.setdefault("unified_pipeline", {}).setdefault("outputs", {})["skipped_mp3"] = display_path(final_mp3, self.cfg.root)
+        unified = payload.setdefault("unified_pipeline", {})
+        outputs = unified.setdefault("outputs", {})
+        outputs["json"] = display_path(final_json, self.cfg.root)
+        outputs["skipped_mp3"] = display_path(final_mp3, self.cfg.root)
+        outputs["source_audio"] = display_path(acq["mp3"], self.cfg.root)
+        outputs["source_metadata"] = display_path(acq.get("info_json"), self.cfg.root) if acq.get("info_json") else None
+        source_lrc = self.cfg.work_dir / key / "lyrics" / "source.lrc"
+        outputs["synced_lrc"] = display_path(source_lrc, self.cfg.root) if source_lrc.is_file() else None
+        unified.setdefault("stages", {})["lyrics"] = {"status": status_code, "reason": reason}
         write_json(final_json, payload, project_root=self.cfg.root)
+        # Do not leave a misleading, partially processed record in songs/final.
+        # The canonical JSON for a skipped song is its explicit skipped record.
+        progress_json = self.cfg.final_dir / f"{name}.json"
+        if progress_json.resolve() != final_json.resolve() and progress_json.is_file():
+            progress_json.unlink(missing_ok=True)
+            progress_json.with_suffix(progress_json.suffix + ".sha256").unlink(missing_ok=True)
         self.songs_db.update_song(
             key,
-            pipeline_status="SKIPPED_NO_SYNCED_LRC",
+            pipeline_status=status_code,
             quality_status="skipped",
             terminal=1,
-            terminal_reason="SKIPPED_NO_SYNCED_LRC",
+            terminal_reason=status_code,
+            source_mp3_path=display_path(acq["mp3"], self.cfg.root),
+            source_json_path=display_path(acq.get("info_json"), self.cfg.root) if acq.get("info_json") else None,
+            source_lrc_path=display_path(source_lrc, self.cfg.root) if source_lrc.is_file() else None,
+            final_mp3_path=display_path(final_mp3, self.cfg.root),
+            final_json_path=display_path(final_json, self.cfg.root),
+            source_mp3_sha256=sha256_file(acq["mp3"]),
         )
-        self.playlist_db.set_status(entry["playlist_serial"], "skipped", terminal=1, reason="SKIPPED_NO_SYNCED_LRC")
+        self.playlist_db.set_status(entry["playlist_serial"], "skipped", terminal=1, reason=status_code)
+        self._sync_catalog()
         return "skipped"
 
     def _hook_queue_path(self):
@@ -358,8 +425,30 @@ class Pipeline:
         if changed:
             self._save_hook_queue(data)
 
+    def _hook_queue_has_current_offset(self, queued):
+        """Refuse queue entries whose offset came from an older synchronization method."""
+        if not isinstance(queued, dict) or queued.get("youtube_offset_method") != MMS_OFFSET_METHOD_VERSION:
+            return False
+        raw_json = queued.get("json_path")
+        if not raw_json:
+            return False
+        final_json = Path(str(raw_json))
+        if not final_json.is_absolute():
+            final_json = self.cfg.root / final_json
+        try:
+            payload = json.loads(final_json.read_text(encoding="utf-8"))
+            offset = (payload.get("youtube") or {}).get("offset") or {}
+            return (
+                offset.get("method_version") == MMS_OFFSET_METHOD_VERSION
+                and int(offset.get("candidate_offset_ms")) == int(queued.get("youtube_offset_ms"))
+            )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return False
+
     def _finalize_from_hook_queue(self, entry, queued):
         """Build only the Reel from a persisted pre-hook package; never reacquire media."""
+        if not self._hook_queue_has_current_offset(queued):
+            raise RuntimeError("HOOK_QUEUE_OFFSET_METHOD_MISMATCH: queue entry must be rebuilt with the active MMS lyric-anchor offset")
         key = str(queued["song_key"])
         name = str(queued["song_name"])
         work = Path(queued["work_dir"])
@@ -516,6 +605,13 @@ class Pipeline:
                 )
                 self._mark_hook_queue_stale(key, "SOURCE_PACKAGE_MISSING")
                 queued = None
+            elif not self._hook_queue_has_current_offset(queued):
+                self.logger.info(
+                    "Song serial=%s has a stale hook queue offset (missing/older method or mismatched song manifest); rebuilding through the MMS offset stage.",
+                    serial,
+                )
+                self._mark_hook_queue_stale(key, "OFFSET_METHOD_CHANGED_OR_MANIFEST_MISMATCH")
+                queued = None
             else:
                 result = self._finalize_from_hook_queue(entry, queued)
                 if result == "hook_pending":
@@ -536,16 +632,27 @@ class Pipeline:
             return "skipped"
 
         active_stage_id = None
+        entry_title = str(entry.get("title") or "Untitled").strip() or "Untitled"
+        entry_artist = str(entry.get("artist") or "Unknown Artist").strip() or "Unknown Artist"
+        entry_album = str(entry.get("album") or "").strip() or None
+        bootstrap_name = f"{int(serial):03d}_{safe_name(entry_title)} - {safe_name(entry_artist)}".rstrip(" ._")[:180]
+        progress_json_path = self.cfg.final_dir / f"{bootstrap_name or f'{int(serial):03d}_untitled'}.json"
+        self._write_progress_manifest(progress_json_path, {
+            "song": {"song_key": key, "playlist_serial": serial, "title": entry_title, "artists": entry_artist, "album": entry_album,
+                     "spotify_track_id": entry.get("spotify_track_id"), "duration_ms": entry.get("duration_ms")},
+            "playlist": {"provider": "spotify", "playlist_id": entry.get("playlist_id"), "playlist_position": entry.get("playlist_position"),
+                         "playlist_serial": serial, "added_at": entry.get("added_at")},
+            "unified_pipeline": {"status": "PROCESSING", "stages": {"spotify_metadata": {"status": "running"}},
+                                 "provenance": {"config_sha256": self.cfg.config_hash,
+                                                "pipeline_version": str(self.cfg.get("project.pipeline_version", self.cfg.get("project.version", "unknown")))},
+                                 "outputs": {"json": display_path(progress_json_path, self.cfg.root)}},
+        })
         try:
             # SongsDB stage_runs/audit_events have a foreign key to songs(song_key).
             # Create the parent row before the first stage can be started. This must happen
             # even when Spotify metadata acquisition subsequently fails, so the original
             # processing error can be recorded without causing a second FK failure.
             self.playlist_db.set_status(serial, "processing", terminal=0, reason="PROCESSING")
-            entry_title = str(entry.get("title") or "Untitled").strip() or "Untitled"
-            entry_artist = str(entry.get("artist") or "Unknown Artist").strip() or "Unknown Artist"
-            entry_album = str(entry.get("album") or "").strip() or None
-            bootstrap_name = f"{int(serial):03d}_{safe_name(entry_title)} - {safe_name(entry_artist)}".rstrip(" ._")[:180]
             self.songs_db.ensure_song({
                 "song_key": key,
                 "playlist_serial": serial,
@@ -600,6 +707,41 @@ class Pipeline:
             )
             md = apply_spotify_metadata(source_stub, spotify_result)
             name = self._basename(serial, md)
+            canonical_progress_path = self.cfg.final_dir / f"{name}.json"
+            if canonical_progress_path.resolve() != progress_json_path.resolve():
+                old_progress_path = progress_json_path
+                progress_json_path = canonical_progress_path
+                # Keep one canonical JSON per song. If a prior canonical manifest exists,
+                # merge into it; otherwise the next write regenerates self/path hashes.
+                if old_progress_path.exists() and not canonical_progress_path.exists():
+                    shutil.copy2(old_progress_path, canonical_progress_path)
+                old_progress_path.unlink(missing_ok=True)
+                old_progress_path.with_suffix(old_progress_path.suffix + ".sha256").unlink(missing_ok=True)
+            expected_outputs = {
+                "mp3": display_path(self.cfg.final_dir / f"{name}.mp3", self.cfg.root),
+                "lrc": display_path(self.cfg.final_dir / f"{name}.lrc", self.cfg.root),
+                "wordlevel_lrc": display_path(self.cfg.final_dir / f"{name}_wordlevel.lrc", self.cfg.root),
+                "8d_mp3": display_path(self.cfg.final_dir / f"{name}_8D.mp3", self.cfg.root),
+                "json": display_path(progress_json_path, self.cfg.root),
+                "reel": display_path(self.cfg.reels_dir / f"{name}_reel.mp4", self.cfg.root),
+                "reel_json": display_path(self.cfg.reels_dir / f"{name}_reel.json", self.cfg.root),
+            }
+            self._write_progress_manifest(progress_json_path, {
+                "song": {"song_key": key, "playlist_serial": serial, "title": md.title, "artists": md.artist,
+                         "album": md.album, "duration_ms": int(spotify_result.duration_ms),
+                         "spotify_track_id": spotify_result.track_id, "isrc": spotify_result.isrc},
+                "spotify": {"track": SpotifyClient.to_json(spotify_result),
+                            "artwork": {"path": display_path(spotify_state["artwork_path"], self.cfg.root) if spotify_state.get("artwork_path") else None,
+                                        "sha256": sha256_file(spotify_state["artwork_path"]) if spotify_state.get("artwork_path") else None}},
+                "metadata": self._metadata_dict(md),
+                "unified_pipeline": {"status": "PROCESSING", "outputs": expected_outputs,
+                                     "stages": {"spotify_metadata": {"status": "completed", "fingerprint": spotify_state.get("fingerprint"), "path": display_path(spotify_state.get("path"), self.cfg.root)},
+                                                 "lrclib": {"status": "pending"}},
+                                     "provenance": {"config_sha256": self.cfg.config_hash,
+                                                    "pipeline_version": str(self.cfg.get("project.pipeline_version", self.cfg.get("project.version", "unknown"))),
+                                                    "spotify_audio_downloaded": False}},
+            })
+            self.songs_db.update_song(key, final_json_path=display_path(progress_json_path, self.cfg.root))
             self.songs_db.ensure_song({
                 "song_key": key,
                 "playlist_serial": serial,
@@ -624,6 +766,91 @@ class Pipeline:
                     self.playlist_db.set_status(serial, "duplicate", terminal=1, reason="DUPLICATE_KEEP_PREVIOUS")
                     self.songs_db.update_song(key, pipeline_status="DUPLICATE_KEEP_PREVIOUS", terminal=1, terminal_reason="DUPLICATE_KEEP_PREVIOUS")
                     return "duplicate"
+
+            # -------- LRCLIB lyrics BEFORE any media acquisition/search --------
+            # The LRCLIB transcript is also the text anchor used later by MMS to find
+            # the lyric phrase in the selected YouTube video. Use Spotify catalog
+            # duration here; do not require YT Music audio to exist before looking up lyrics.
+            lyrics_cfg = self.cfg.get("lyrics", {}) or {}
+            lrc_client = LRCLIBClient(lyrics_cfg)
+            lyrics_fp = stable_json_hash({
+                "title": md.title, "artist": md.artist, "album": md.album,
+                "spotify_duration_ms": int(spotify_result.duration_ms),
+                "provider": "lrclib",
+                "lyrics_strategy_version": "lrclib-before-media-prefetch-v3-telugu-script-gate-v1",
+                "required_script": "Telugu",
+            })
+            lyric_dir = work_base / "lyrics"
+            lyric_dir.mkdir(parents=True, exist_ok=True)
+            lrc = lyric_dir / "source.lrc"
+            lyric_metadata_path = lyric_dir / "source.metadata.json"
+            lyric_state = state.get("lyrics", {}) if isinstance(state.get("lyrics"), dict) else {}
+            lres = None
+            if lyric_state.get("fingerprint") == lyrics_fp and lrc.is_file() and lrc.stat().st_size > 0:
+                try:
+                    lyric_metadata = json.loads(lyric_metadata_path.read_text(encoding="utf-8")) if lyric_metadata_path.exists() else {}
+                    lres = LyricsResult(
+                        lyrics_id=lyric_metadata.get("lyrics_id"), track_name=lyric_metadata.get("track_name") or md.title,
+                        artist_name=lyric_metadata.get("artist_name") or md.artist, album_name=lyric_metadata.get("album_name") or md.album,
+                        duration=lyric_metadata.get("duration") or int(round(spotify_result.duration_ms / 1000)),
+                        instrumental=lyric_metadata.get("instrumental", False), synced_lyrics=lrc.read_text(encoding="utf-8"),
+                        query_track=md.title, query_artist=md.artist, query_album=md.album or "",
+                        duration_delta_seconds=lyric_metadata.get("duration_delta_seconds"),
+                        match_method=lyric_metadata.get("match_method") or "cached_lrclib", raw=lyric_metadata.get("raw") or {},
+                    )
+                    self._record_reused(key, "lyrics", lyrics_fp, lrc, sha256_file(lrc))
+                except Exception:
+                    lres = None
+            if lres is None:
+                lyric_stage = self._stage(key, "lyrics", lyrics_fp, lrc)
+                try:
+                    lres = lrc_client.get_synced(
+                        title=md.title, artist=md.artist, album=md.album,
+                        duration_seconds=int(round(spotify_result.duration_ms / 1000)),
+                    )
+                    if lres:
+                        lrc.write_text(lres.synced_lyrics, encoding="utf-8")
+                        lyric_metadata_path.write_text(json.dumps({
+                            "lyrics_id": lres.lyrics_id, "track_name": lres.track_name, "artist_name": lres.artist_name,
+                            "album_name": lres.album_name, "duration": lres.duration, "instrumental": lres.instrumental,
+                            "duration_delta_seconds": lres.duration_delta_seconds, "match_method": lres.match_method,
+                            "raw": dict(lres.raw), "lrc_sha256": sha256_file(lrc),
+                        }, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+                        self._finish(lyric_stage, "completed", lrc, sha256_file(lrc))
+                    else:
+                        lrc.unlink(missing_ok=True)
+                        self._finish(lyric_stage, "completed", err="No synced LRCLIB lyrics found")
+                except Exception as exc:
+                    self._finish(lyric_stage, "error", err=str(exc))
+                    raise
+            state["lyrics"] = {
+                "fingerprint": lyrics_fp, "path": str(lrc) if lres else None,
+                "metadata_path": str(lyric_metadata_path) if lres else None,
+                "sha256": sha256_file(lrc) if lres else None,
+                "status": "synced" if lres else "not_found",
+                "provider": "lrclib", "method": lres.match_method if lres else None,
+            }
+            atomic_write_json(state_path, state)
+            self._write_progress_manifest(progress_json_path, {
+                "lyrics": {"provider": "lrclib", "status": "synced" if lres else "not_found",
+                            "synced": bool(lres), "source_lrc": display_path(lrc, self.cfg.root) if lres else None,
+                            "source_lrc_sha256": sha256_file(lrc) if lres else None,
+                            "strategy_version": str(self.cfg.get("lyrics.strategy_version", "lrclib-get-then-search-v2")),
+                            "match_method": lres.match_method if lres else None,
+                            "duration_delta_seconds": lres.duration_delta_seconds if lres else None},
+                "unified_pipeline": {"status": "PROCESSING", "stages": {"lrclib": {"status": "completed" if lres else "not_found",
+                                                                                     "fingerprint": lyrics_fp,
+                                                                                     "path": display_path(lrc, self.cfg.root) if lres else None}}},
+            })
+            if lres:
+                self.songs_db.upsert_lyric_source(key, {
+                    "provider": "lrclib", "synced": 1, "raw_lrc_path": str(lrc),
+                    "raw_lrc_sha256": sha256_file(lrc),
+                    "line_count": sum(1 for x in lres.synced_lyrics.splitlines() if x.strip()),
+                    "status": "synced", "fetched_at": "__CURRENT_TIMESTAMP__",
+                })
+            else:
+                self.songs_db.upsert_lyric_source(key, {"provider": "lrclib", "synced": 0, "status": "skipped", "reason": "No synced LRC from /api/get or /api/search"})
 
             # -------- YT Music audio source --------
             ytm_fp = stable_json_hash({
@@ -670,8 +897,6 @@ class Pipeline:
             src_hash = sha256_file(acq["mp3"])
             work = work_base / f"source_{src_hash[:16]}"
             work.mkdir(parents=True, exist_ok=True)
-            full_source, full_audio_meta = prepare_full_source(Path(acq["mp3"]), work)
-            source16, source16_meta = prepare_source(full_source, work)
             source_info = json.loads(Path(acq["info_json"]).read_text(encoding="utf-8"))
             source_md = normalized_from_acquisition(acq, playlist_item=entry)
             md = apply_spotify_metadata(source_md, spotify_result)
@@ -688,49 +913,20 @@ class Pipeline:
                 "ytm_audio_sha256": src_hash,
             })
 
-            # -------- Synced line LRC --------
-            lyrics_cfg = self.cfg.get("lyrics", {}) or {}
-            lrc_client = LRCLIBClient(lyrics_cfg)
-            lyrics_fp = stable_json_hash({
-                "title": md.title,
-                "artist": md.artist,
-                "album": md.album,
-                "duration_ms": int(acq["duration_ms"]),
-                "provider": "lrclib",
-                "endpoint": "https://lrclib.net/api/get + /api/search fallback",
-                "lyrics_strategy_version": "lrclib-get-then-search-v2-telugu-script-gate-v1",
-                "required_script": "Telugu",
-                "telugu_script_gate": "at_least_one_U+0C00_U+0C7F_codepoint_in_complete_lrc",
-            })
-            lrc = work / "lyrics" / "source.lrc"
-            lrc.parent.mkdir(parents=True, exist_ok=True)
-            if state.get("lyrics", {}).get("fingerprint") == lyrics_fp and lrc.exists():
-                lres = LyricsResult(
-                    lyrics_id=None, track_name=md.title, artist_name=md.artist, album_name=md.album,
-                    duration=int(round(acq["duration_ms"] / 1000)), instrumental=False,
-                    synced_lyrics=lrc.read_text(encoding="utf-8"), query_track=md.title,
-                    query_artist=md.artist, query_album=md.album or "", duration_delta_seconds=0.0,
-                    match_method="cached_lrclib_api_get", raw={},
-                )
-                self._record_reused(key, "lyrics", lyrics_fp, lrc, sha256_file(lrc))
-            else:
-                active_stage_id = self._stage(key, "lyrics", lyrics_fp, lrc)
-                lres = lrc_client.get_synced(title=md.title, artist=md.artist, album=md.album, duration_seconds=int(round(acq["duration_ms"] / 1000)))
-                if not lres:
-                    self._finish(active_stage_id, "completed")
-                    active_stage_id = None
-                    self.songs_db.upsert_lyric_source(key, {"provider": "lrclib", "synced": 0, "status": "skipped", "reason": "No synced LRC from /api/get or /api/search"})
-                    self.songs_db.update_song(key, pipeline_status="SKIPPED_NO_SYNCED_LRC", quality_status="skipped", terminal=1, terminal_reason="SKIPPED_NO_SYNCED_LRC")
-                    # Use current YTM source but embed Spotify catalog metadata/artwork in the skipped MP3.
-                    artwork = None
-                    art_path = spotify_state.get("artwork_path")
-                    if art_path:
-                        artwork = {"path": art_path, "mime": "image/jpeg" if str(art_path).lower().endswith(".jpg") else "image/png"}
-                    self._record_skip_no_lrc(key, entry, md, acq, source_info, spotify_result, {"artwork": artwork}, name, "No synchronized lyrics returned by LRCLIB /api/get or /api/search")
-                    return "skipped"
-                lrc.write_text(lres.synced_lyrics, encoding="utf-8")
-                self._finish(active_stage_id, "completed", lrc, sha256_file(lrc))
-                active_stage_id = None
+            # LRCLIB was already queried before media acquisition. If lyrics were
+            # unavailable, persist the existing explicit skipped package now that the
+            # selected reference audio and metadata are available; do not search YouTube.
+            if not lres or not lrc.exists():
+                self.songs_db.upsert_lyric_source(key, {"provider": "lrclib", "synced": 0, "status": "skipped", "reason": "No synced LRC from /api/get or /api/search"})
+                self.songs_db.update_song(key, pipeline_status="SKIPPED_NO_SYNCED_LRC", quality_status="skipped", terminal=1, terminal_reason="SKIPPED_NO_SYNCED_LRC")
+                artwork = None
+                art_path = spotify_state.get("artwork_path")
+                if art_path:
+                    artwork = {"path": art_path, "mime": "image/jpeg" if str(art_path).lower().endswith(".jpg") else "image/png"}
+                self._record_skip_no_lrc(key, entry, md, acq, source_info, spotify_result, {"artwork": artwork}, name, "No synchronized lyrics returned by LRCLIB /api/get or /api/search")
+                self._sync_catalog()
+                return "skipped"
+
             # -------- Telugu-script LRC gate --------
             # LRCLIB's "synced" flag does not mean the lyrics are written in
             # Telugu script. Romanized/Latin-only lyrics can otherwise reach the
@@ -762,8 +958,12 @@ class Pipeline:
                     artwork = {"path": art_path, "mime": "image/jpeg" if str(art_path).lower().endswith(".jpg") else "image/png"}
                 self._record_skip_no_lrc(
                     key, entry, md, acq, source_info, spotify_result, {"artwork": artwork}, name,
-                    "Selected synchronized LRC contains no Telugu-script characters (U+0C00-U+0C7F)"
+                    "Selected synchronized LRC contains no Telugu-script characters (U+0C00-U+0C7F)",
+                    status_code="SKIPPED_NO_TELUGU_SCRIPT_LRC",
                 )
+                # Keep the derived catalog in sync for terminal skip paths, too; otherwise
+                # the DB and songs.json disagree until the next invocation.
+                self._sync_catalog()
                 return "skipped"
 
             self.songs_db.upsert_lyric_source(key, {
@@ -776,24 +976,21 @@ class Pipeline:
             atomic_write_json(state_path, state)
 
 
-            # -------- Resolve YouTube visual source ONCE + full-song offset --------
-            # The visual search is intentionally performed exactly once per song.
-            # After this point we reuse the persisted exact URL; hook selection must
-            # never trigger another YouTube search.
+            # -------- YouTube search + MMS-only offset, before the full pipeline --------
+            # The LRCLIB transcript is the only text used for offset calculation. MMS
+            # aligns the same opening lyric phrase independently on the acquired YT Music
+            # reference audio and the selected YouTube video's audio. We compare those
+            # word timestamps now, before source WAV preparation, Demucs, or word-LRC work.
             visual_fp = stable_json_hash({
-                "title": md.title,
-                "artist": md.artist,
-                "album": md.album,
+                "title": md.title, "artist": md.artist, "album": md.album,
                 "search_limit": int(self.cfg.get("youtube_video_search.results_to_fetch", 20)),
-                "selection_rule": "top_result_non_lyrics_title_title_album_video_song_hd_no_duration_v2",
+                "selection_rule": "top_result_non_lyrics_title_album_video_song_hd_v3",
             })
             selected_json = work / "youtube" / "selected_video.json"
             if state.get("youtube", {}).get("fingerprint") == visual_fp and selected_json.exists():
                 ystate = state["youtube"]
                 video = type("CachedVideo", (), {
-                    "video_id": ystate["video_id"],
-                    "video_url": ystate["video_url"],
-                    "title": ystate.get("title"),
+                    "video_id": ystate["video_id"], "video_url": ystate["video_url"], "title": ystate.get("title"),
                 })()
                 query = ystate.get("query")
                 self._record_reused(key, "youtube_selection", visual_fp, selected_json, sha256_file(selected_json))
@@ -805,77 +1002,152 @@ class Pipeline:
                 active_stage_id = None
                 state["youtube"] = {"fingerprint": visual_fp, "query": query, "video_id": video.video_id, "video_url": video.video_url, "title": video.title}
                 atomic_write_json(state_path, state)
-            ref_fp = stable_json_hash({
-                "source_sha256": src_hash,
-                "visual_video_id": video.video_id,
-                "reference_duration_ms": int(duration_ms(source16)),
-                "frame_ms": int(self.cfg.get("youtube_offset.frame_ms", 25)),
-                "coarse_step_ms": int(self.cfg.get("youtube_offset.coarse_step_ms", 250)),
-                "fine_step_ms": int(self.cfg.get("youtube_offset.fine_step_ms", 25)),
-                "min_match_score": float(self.cfg.get("youtube_offset.min_match_score", 0.20)),
-                "min_peak_margin": float(self.cfg.get("youtube_offset.min_peak_margin", 0.04)),
-                "ambiguity_window_ms": int(self.cfg.get("youtube_offset.ambiguity_window_ms", 1000)),
-                "method_version": (
-                    self.cfg.get("youtube_offset.method_version")
-                    if self.cfg.get("youtube_offset.method_version") not in (None, "", "unified-offset-v1")
-                    else "full-song-energy-envelope-v3"
-                ),
-            })
-            # Download/reference-sync the exact selected URL. This is NOT a new search.
-            # Never rebuild a YouTube query here and never select a different video for the hook.
             selected_video_url = str(video.video_url)
-            if not selected_video_url.startswith("https://www.youtube.com/watch?v="):
+            if not selected_video_url.startswith(("https://www.youtube.com/watch?v=", "https://youtube.com/watch?v=", "https://youtu.be/")):
                 raise RuntimeError(f"YOUTUBE_SELECTED_URL_INVALID: {selected_video_url}")
-            ref_wav = work / "youtube" / "reference_audio.wav"
-            if state.get("youtube_offset", {}).get("fingerprint") == ref_fp and ref_wav.exists():
-                offset = state["youtube_offset"]["result"]
-                candidates = state["youtube_offset"].get("candidates", [])
-                self._record_reused(key, "youtube_offset", ref_fp, ref_wav, sha256_file(ref_wav))
-            else:
-                active_stage_id = self._stage(key, "youtube_offset", ref_fp, ref_wav)
-                ref_wav = download_audio(self.cfg, video.video_id, work, source_url=selected_video_url)
-                offset, candidates = find_offset(source16, ref_wav, self.cfg.get("youtube_offset", {}) or {})
-                self._finish(active_stage_id, "completed", ref_wav, sha256_file(ref_wav))
-                active_stage_id = None
-                state["youtube_offset"] = {"fingerprint": ref_fp, "result": offset, "candidates": candidates, "reference_audio": str(ref_wav)}
-                atomic_write_json(state_path, state)
-            self.songs_db.add_youtube_candidates(key, candidates)
-            self.songs_db.upsert_youtube(key, {
-                "video_id": video.video_id,
-                "video_url": video.video_url,
-                "video_title": video.title,
-                "selection_query": query,
-                "selection_rule": "top_result_non_lyrics_title_title_album_video_song_hd_no_duration_v2",
-                "audio_path": str(ref_wav),
-                "audio_sha256": sha256_file(ref_wav),
-                "offset_ms": offset["candidate_offset_ms"],
-                "offset_seconds": offset["candidate_offset_ms"] / 1000,
-                "match_score": offset["total_score"],
-                "waveform_score": offset.get("waveform_score"),
-                "energy_score": offset.get("energy_score"),
-                "peak_valley_score": offset.get("peak_valley_score"),
-                "transition_score": offset.get("transition_score"),
-                "reference_duration_ms": offset.get("reference_duration_ms"),
-                "max_accepted_offset_ms": offset.get("max_possible_offset_ms"),
-                "method_version": (
-                    self.cfg.get("youtube_offset.method_version")
-                    if self.cfg.get("youtube_offset.method_version") not in (None, "", "unified-offset-v1")
-                    else "full-song-energy-envelope-v3"
-                ),
+            ref_wav = download_audio(self.cfg, video.video_id, work, source_url=selected_video_url)
+
+            reference_anchor_json = work / "reference_audio" / "lyric_anchor.json"
+            reference_anchor_fp = stable_json_hash({
+                "method_version": MMS_OFFSET_METHOD_VERSION, "source_label": "reference",
+                "source_audio_sha256": src_hash, "lrclib_lrc_sha256": sha256_file(lrc),
+                "mms_model": self.cfg.get("models.mms_model", "facebook/mms-1b-all"),
+                "mms_revision": self.cfg.get("models.mms_revision"), "config_hash": self.cfg.config_hash,
             })
-            if not bool(offset.get("accepted", True)):
-                rejection = ", ".join(offset.get("rejection_reasons", []) or ["low_confidence"])
-                self.songs_db.update_song(key, pipeline_status="YOUTUBE_OFFSET_REJECTED", terminal=0, terminal_reason=rejection)
-                self.playlist_db.set_status(serial, "needs_review", terminal=0, reason="YOUTUBE_OFFSET_REJECTED")
-                self.logger.error(
-                    "Rejecting YouTube offset for %s: score=%.4f, margin=%s, reasons=%s",
-                    key, float(offset.get("total_score", 0.0)), offset.get("peak_margin"), rejection,
-                )
-                raise RuntimeError(
-                    f"YOUTUBE_OFFSET_REJECTED: score={offset.get('total_score')}, "
-                    f"peak_margin={offset.get('peak_margin')}, reasons={rejection}. "
-                    "Review or replace the selected visual video before building a Reel."
-                )
+            cached_reference_anchor = self._cached_stage(key, "reference_lyric_anchor", reference_anchor_fp, [reference_anchor_json])
+            if state.get("reference_lyric_anchor", {}).get("fingerprint") == reference_anchor_fp and cached_reference_anchor:
+                reference_anchor = json.loads(reference_anchor_json.read_text(encoding="utf-8"))
+                self._record_reused(key, "reference_lyric_anchor", reference_anchor_fp, reference_anchor_json, sha256_file(reference_anchor_json))
+            else:
+                active_stage_id = self._stage(key, "reference_lyric_anchor", reference_anchor_fp, reference_anchor_json)
+                reference_anchor = find_reference_lyric_anchor(self.cfg, lrc, Path(acq["mp3"]), work)
+                self._finish(active_stage_id, "completed", reference_anchor_json, sha256_file(reference_anchor_json))
+                active_stage_id = None
+            state["reference_lyric_anchor"] = {
+                "fingerprint": reference_anchor_fp, "path": str(reference_anchor_json),
+                "sha256": sha256_file(reference_anchor_json), "method_version": MMS_OFFSET_METHOD_VERSION,
+                "phrase_start_ms": ((reference_anchor.get("chosen") or {}).get("phrase_start_ms")),
+                "phrase_end_ms": ((reference_anchor.get("chosen") or {}).get("phrase_end_ms")),
+                "matched_word_count": ((reference_anchor.get("chosen") or {}).get("matched_word_count")),
+                "mean_word_confidence": ((reference_anchor.get("chosen") or {}).get("mean_word_confidence")),
+            }
+            atomic_write_json(state_path, state)
+
+            youtube_anchor_fp = stable_json_hash({
+                "method_version": MMS_OFFSET_METHOD_VERSION, "source_label": "youtube",
+                "video_id": video.video_id, "video_url": video.video_url,
+                "youtube_audio_sha256": sha256_file(ref_wav), "lrclib_lrc_sha256": sha256_file(lrc),
+                "mms_model": self.cfg.get("models.mms_model", "facebook/mms-1b-all"),
+                "mms_revision": self.cfg.get("models.mms_revision"), "config_hash": self.cfg.config_hash,
+            })
+            anchor_json = work / "youtube" / "lyric_anchor.json"
+            cached_anchor_stage = self._cached_stage(key, "youtube_lyric_anchor", youtube_anchor_fp, [anchor_json])
+            if state.get("youtube_lyric_anchor", {}).get("fingerprint") == youtube_anchor_fp and cached_anchor_stage:
+                anchor = json.loads(anchor_json.read_text(encoding="utf-8"))
+                self._record_reused(key, "youtube_lyric_anchor", youtube_anchor_fp, anchor_json, sha256_file(anchor_json))
+            else:
+                active_stage_id = self._stage(key, "youtube_lyric_anchor", youtube_anchor_fp, anchor_json)
+                anchor = find_youtube_lyric_anchor(self.cfg, lrc, ref_wav, work)
+                self._finish(active_stage_id, "completed", anchor_json, sha256_file(anchor_json))
+                active_stage_id = None
+            state["youtube_lyric_anchor"] = {
+                "fingerprint": youtube_anchor_fp, "path": str(anchor_json), "sha256": sha256_file(anchor_json),
+                "method_version": MMS_OFFSET_METHOD_VERSION,
+                "phrase_start_ms": ((anchor.get("chosen") or {}).get("phrase_start_ms")),
+                "phrase_end_ms": ((anchor.get("chosen") or {}).get("phrase_end_ms")),
+                "matched_word_count": ((anchor.get("chosen") or {}).get("matched_word_count")),
+                "mean_word_confidence": ((anchor.get("chosen") or {}).get("mean_word_confidence")),
+            }
+            atomic_write_json(state_path, state)
+
+            offset_fp = stable_json_hash({
+                "method_version": MMS_OFFSET_METHOD_VERSION,
+                "reference_anchor_sha256": sha256_file(reference_anchor_json),
+                "youtube_anchor_sha256": sha256_file(anchor_json),
+                "lrclib_lrc_sha256": sha256_file(lrc), "config_hash": self.cfg.config_hash,
+            })
+            offset_json = work / "youtube" / "offset.json"
+            cached_offset = state.get("youtube_offset", {}) if isinstance(state.get("youtube_offset"), dict) else {}
+            cached_offset_stage = self._cached_stage(key, "youtube_offset", offset_fp, [offset_json, anchor_json, reference_anchor_json])
+            if cached_offset.get("fingerprint") == offset_fp and isinstance(cached_offset.get("result"), dict) and cached_offset_stage:
+                offset = cached_offset["result"]
+                candidates = cached_offset.get("candidates", [])
+                self._record_reused(key, "youtube_offset", offset_fp, offset_json, sha256_file(offset_json))
+            elif cached_offset_stage:
+                persisted_offset = json.loads(offset_json.read_text(encoding="utf-8"))
+                if persisted_offset.get("fingerprint") != offset_fp:
+                    raise RuntimeError("MMS_OFFSET_CACHE_MISMATCH: persisted offset fingerprint does not match both lyric anchors")
+                offset = persisted_offset["result"]
+                candidates = persisted_offset.get("candidates", [])
+                state["youtube_offset"] = persisted_offset
+            else:
+                active_stage_id = self._stage(key, "youtube_offset", offset_fp, offset_json)
+                offset = calculate_offset_from_anchors(anchor, reference_anchor, self.cfg)
+                candidates = list(offset.get("matched_words", []))
+                offset_record = {
+                    "schema_version": 1, "fingerprint": offset_fp, "result": offset, "candidates": candidates,
+                    "reference_audio": str(acq["mp3"]), "youtube_audio": str(ref_wav),
+                    "reference_anchor": str(reference_anchor_json), "youtube_anchor": str(anchor_json),
+                    "method_version": MMS_OFFSET_METHOD_VERSION,
+                }
+                atomic_write_json(offset_json, offset_record)
+                self._finish(active_stage_id, "completed", offset_json, sha256_file(offset_json))
+                active_stage_id = None
+                state["youtube_offset"] = offset_record
+            # Keep the current result available in state even when it was cached under
+            # the same fingerprint; this stage is authoritative for all later Reel work.
+            state["youtube_offset"] = {
+                "schema_version": 1, "fingerprint": offset_fp, "result": offset, "candidates": candidates,
+                "reference_audio": str(acq["mp3"]), "youtube_audio": str(ref_wav),
+                "reference_anchor": str(reference_anchor_json), "youtube_anchor": str(anchor_json),
+                "method_version": MMS_OFFSET_METHOD_VERSION,
+            }
+            if not offset_json.exists():
+                atomic_write_json(offset_json, state["youtube_offset"])
+            atomic_write_json(state_path, state)
+            self.songs_db.replace_youtube_offset_evidence(key, offset.get("matched_words", []))
+            self.songs_db.upsert_youtube(key, {
+                "video_id": video.video_id, "video_url": video.video_url, "video_title": video.title,
+                "selection_query": query,
+                "selection_rule": "top_result_non_lyrics_title_album_video_song_hd_v3",
+                "audio_path": str(ref_wav), "audio_sha256": sha256_file(ref_wav),
+                "offset_ms": int(offset["candidate_offset_ms"]),
+                "offset_seconds": float(offset["candidate_offset_ms"]) / 1000.0,
+                "match_score": float(offset.get("total_score") or 0.0),
+                "matched_word_count": int(offset.get("matched_word_count") or 0),
+                "median_absolute_deviation_ms": float(offset.get("median_absolute_deviation_ms") or 0.0),
+                "p90_p10_spread_ms": int(offset.get("p90_p10_spread_ms") or 0),
+                "reference_duration_ms": int(duration_ms(acq["mp3"])),
+                "youtube_duration_ms": int(duration_ms(ref_wav)), "method_version": MMS_OFFSET_METHOD_VERSION,
+                "status": "accepted" if offset.get("accepted") else "rejected",
+            })
+            self.songs_db.update_song(key, ytm_video_id=acq.get("ytm_video_id"), ytm_url=acq.get("ytm_url"))
+            self._write_progress_manifest(progress_json_path, {
+                "ytmusic_audio": {"video_id": acq.get("ytm_video_id"), "url": acq.get("ytm_url"),
+                                  "query": acq.get("ytm_query"), "path": display_path(acq["mp3"], self.cfg.root),
+                                  "sha256": src_hash, "duration_ms": int(acq["duration_ms"]),
+                                  "selection_rule": "ranked title/artist/album/duration candidate selection"},
+                "youtube": {"visual_video": {"video_id": video.video_id, "url": video.video_url, "title": video.title, "query": query},
+                            "reference_lyric_anchor": {"path": display_path(reference_anchor_json, self.cfg.root),
+                                "sha256": sha256_file(reference_anchor_json), "phrase_start_ms": reference_anchor.get("chosen", {}).get("phrase_start_ms"),
+                                "matched_word_count": reference_anchor.get("chosen", {}).get("matched_word_count"),
+                                "mean_word_confidence": reference_anchor.get("chosen", {}).get("mean_word_confidence")},
+                            "lyric_anchor": {"path": display_path(anchor_json, self.cfg.root), "sha256": sha256_file(anchor_json),
+                                "phrase_start_ms": anchor.get("chosen", {}).get("phrase_start_ms"),
+                                "matched_word_count": anchor.get("chosen", {}).get("matched_word_count"),
+                                "mean_word_confidence": anchor.get("chosen", {}).get("mean_word_confidence")},
+                            "offset": offset, "offset_json": display_path(offset_json, self.cfg.root)},
+                "unified_pipeline": {"status": "PROCESSING", "stages": {
+                    "youtube_selection": {"status": "completed", "fingerprint": visual_fp, "video_id": video.video_id},
+                    "reference_lyric_anchor": {"status": "completed", "fingerprint": reference_anchor_fp},
+                    "youtube_lyric_anchor": {"status": "completed", "fingerprint": youtube_anchor_fp},
+                    "youtube_offset": {"status": "completed", "fingerprint": offset_fp, "offset_ms": offset["candidate_offset_ms"], "confidence": offset.get("total_score")}}},
+                "provenance": {"source_mp3_sha256": src_hash, "reference_audio_sha256": src_hash,
+                               "youtube_audio_sha256": sha256_file(ref_wav), "youtube_offset_method": MMS_OFFSET_METHOD_VERSION},
+            })
+            # Offset is now determined. Only now begin the heavier audio processing stages.
+            full_source, full_audio_meta = prepare_full_source(Path(acq["mp3"]), work)
+            source16, source16_meta = prepare_source(full_source, work)
 
             shutil.copy2(acq["mp3"], work / "source.mp3")
             shutil.copy2(acq["info_json"], work / "source.json")
@@ -901,6 +1173,11 @@ class Pipeline:
             })
             self._finish(dem_stage, "completed", dem["other"], sha256_file(dem["other"]))
             active_stage_id = None
+            self._write_progress_manifest(progress_json_path, {
+                "demucs": {**dem, "input_sha256": sha256_file(full_source),
+                           "stems_sha256": {kind: sha256_file(dem[kind]) for kind in ("vocals", "drums", "bass", "other")}},
+                "unified_pipeline": {"status": "PROCESSING", "stages": {"demucs": {"status": "completed", "fingerprint": dem_fp}}},
+            })
 
             # -------- Word-level alignment --------
             align_fp = stable_json_hash({
@@ -951,8 +1228,20 @@ class Pipeline:
                 self._finish(active_stage_id, "completed", aligned["lrc"], sha256_file(aligned["lrc"]))
                 active_stage_id = None
             word_lrc = Path(aligned["lrc"])
+            # The MMS offset was calculated immediately after the LRCLIB fetch and
+            # YouTube selection, before Demucs/alignment. Keep the final word alignment
+            # references in state for diagnostics, but do not recalculate or replace offset.
             state["alignment"] = {"fingerprint": align_fp, "run_id": alignment_id, "wordlevel_lrc": str(word_lrc), "json": str(aligned["json"]), "mp3": str(aligned["mp3"]), "word_count": len(words)}
             atomic_write_json(state_path, state)
+            self._write_progress_manifest(progress_json_path, {
+                "alignment": {"engine": "MMS/CTC Phase-2", "quality_status": p2j.get("phase2", {}).get("quality_status"),
+                              "word_count": len(words), "wordlevel_lrc": display_path(word_lrc, self.cfg.root),
+                              "wordlevel_lrc_sha256": sha256_file(word_lrc), "phase2_json": display_path(aligned["json"], self.cfg.root),
+                              "phase2_json_sha256": sha256_file(aligned["json"]),
+                              "phase2": p2j.get("phase2", {})},
+                "unified_pipeline": {"status": "PROCESSING", "stages": {"alignment": {"status": "completed", "fingerprint": align_fp,
+                                                                                             "word_count": len(words), "run_id": alignment_id}}},
+            })
 
             # -------- Whole-song 8D --------
             eightd_fp = stable_json_hash({
@@ -985,6 +1274,14 @@ class Pipeline:
                 "device": dem["device"], "output_path": str(eightd), "output_sha256": sha256_file(eightd), "status": "completed",
                 "validation_status": "passed", "manifest_path": str(eightd_manifest),
             })
+            self._write_progress_manifest(progress_json_path, {
+                "audio_8d": {**manifest, "path": display_path(eightd, self.cfg.root),
+                              "sha256": sha256_file(eightd), "manifest_path": display_path(eightd_manifest, self.cfg.root),
+                              "manifest_sha256": sha256_file(eightd_manifest)},
+                "unified_pipeline": {"status": "PROCESSING", "stages": {"audio_8d": {
+                    "status": "completed", "fingerprint": eightd_fp, "path": display_path(eightd, self.cfg.root),
+                    "sha256": sha256_file(eightd)}}},
+            })
 
             # -------- Pre-hook final package promotion --------
             # Persist song + whole-song 8D + synced LRC + word-level LRC + JSON before hook selection.
@@ -1004,13 +1301,93 @@ class Pipeline:
             shutil.copy2(lrc, final_lrc)
             shutil.copy2(word_lrc, final_wlrc)
             shutil.copy2(eightd, final_8d)
-            pre = {"unified_pipeline": {"status": "PRE_HOOK_READY", "outputs": {
-                "mp3": display_path(final_mp3, self.cfg.root),
-                "lrc": display_path(final_lrc, self.cfg.root),
-                "wordlevel_lrc": display_path(final_wlrc, self.cfg.root),
-                "json": display_path(final_json, self.cfg.root),
+            # The per-song JSON is the complete record of work so far, even when hook
+            # selection is deferred. Preserve the progressive stage log written earlier.
+            pre = build_json(
+                source_info,
+                playlist={"provider": "spotify", "playlist_id": entry.get("playlist_id"),
+                          "playlist_position": entry.get("playlist_position"), "playlist_serial": serial,
+                          "added_at": entry.get("added_at"), "snapshot_id": entry.get("playlist_snapshot_id")},
+                spotify={"track": SpotifyClient.to_json(spotify_result), "artwork": artwork,
+                         "metadata_source": "spotify_full_track_album_artist_api"},
+                metadata=self._metadata_dict(md),
+                ytmusic_audio={"query": acq.get("ytm_query"), "selected_video_id": acq.get("ytm_video_id"),
+                               "selected_url": acq.get("ytm_url"), "candidate": acq.get("ytm_candidate"),
+                               "candidates_considered": acq.get("ytm_candidates", []),
+                               "selection_rule": "ranked title/artist/album/duration candidate selection",
+                               "spotify_duration_ms": spotify_result.duration_ms, "actual_download_duration_ms": acq.get("duration_ms"),
+                               "audio_path": display_path(acq["mp3"], self.cfg.root), "audio_sha256": src_hash},
+                youtube={
+                    "visual_video": {"video_id": video.video_id, "url": video.video_url, "title": video.title,
+                                     "query": query, "selection_rule": "top_result_non_lyrics_title_album_video_song_hd_v3"},
+                    "lyric_anchor": {"method_version": MMS_OFFSET_METHOD_VERSION,
+                                     "path": display_path(anchor_json, self.cfg.root), "sha256": sha256_file(anchor_json),
+                                     "phrase_start_ms": (anchor.get("chosen") or {}).get("phrase_start_ms"),
+                                     "phrase_end_ms": (anchor.get("chosen") or {}).get("phrase_end_ms"),
+                                     "matched_word_count": (anchor.get("chosen") or {}).get("matched_word_count"),
+                                     "mean_word_confidence": (anchor.get("chosen") or {}).get("mean_word_confidence"),
+                                     "lyrics_source": "LRCLIB"},
+                    "reference_lyric_anchor": {"method_version": MMS_OFFSET_METHOD_VERSION,
+                                     "path": display_path(reference_anchor_json, self.cfg.root), "sha256": sha256_file(reference_anchor_json),
+                                     "phrase_start_ms": (reference_anchor.get("chosen") or {}).get("phrase_start_ms"),
+                                     "phrase_end_ms": (reference_anchor.get("chosen") or {}).get("phrase_end_ms"),
+                                     "matched_word_count": (reference_anchor.get("chosen") or {}).get("matched_word_count"),
+                                     "mean_word_confidence": (reference_anchor.get("chosen") or {}).get("mean_word_confidence"),
+                                     "lyrics_source": "LRCLIB"},
+                    "offset": offset, "offset_candidates": candidates,
+                    "offset_json": display_path(work / "youtube" / "offset.json", self.cfg.root),
+                },
+                lyrics={"provider": "lrclib", "synced": True, "source_lrc": display_path(lrc, self.cfg.root),
+                        "source_lrc_sha256": sha256_file(lrc), "wordlevel_lrc": display_path(final_wlrc, self.cfg.root),
+                        "wordlevel_lrc_sha256": sha256_file(final_wlrc),
+                        "strategy_version": str(self.cfg.get("lyrics.strategy_version", "lrclib-get-then-search-v2")),
+                        "telugu_script_gate": "passed", "match_method": lres.match_method if lres else None,
+                        "duration_delta_seconds": lres.duration_delta_seconds if lres else None,
+                        "provider_record": {"lyrics_id": lres.lyrics_id, "track_name": lres.track_name,
+                                             "artist_name": lres.artist_name, "album_name": lres.album_name,
+                                             "duration": lres.duration, "instrumental": lres.instrumental} if lres else None},
+                demucs={**dem, "input_sha256": sha256_file(full_source),
+                        "stems_sha256": {kind: sha256_file(dem[kind]) for kind in ("vocals", "drums", "bass", "other")}},
+                alignment={"engine": "MMS/CTC Phase-2", "quality_status": p2j.get("phase2", {}).get("quality_status"),
+                           "word_count": len(words), "wordlevel_lrc": display_path(final_wlrc, self.cfg.root),
+                           "wordlevel_lrc_sha256": sha256_file(final_wlrc), "phase2": p2j.get("phase2", {})},
+                audio_8d={**manifest, "path": display_path(final_8d, self.cfg.root), "sha256": sha256_file(final_8d),
+                          "manifest_path": display_path(eightd_manifest, self.cfg.root), "manifest_sha256": sha256_file(eightd_manifest)},
+                hook={"status": "awaiting_selection", "start_ms": None, "end_ms": None,
+                      "selection_deferred": bool(self.cfg.get("hook.skip", False))},
+                reel={"status": "pending_hook_selection", "path": display_path(self.cfg.reels_dir / f"{name}_reel.mp4", self.cfg.root),
+                      "json_path": display_path(self.cfg.reels_dir / f"{name}_reel.json", self.cfg.root)},
+                provenance={"source_mp3_sha256": src_hash, "config_sha256": self.cfg.config_hash,
+                            "pipeline_version": str(self.cfg.get("project.pipeline_version", self.cfg.get("project.version", "unknown"))),
+                            "source_workdir": display_path(work, self.cfg.root),
+                            "spotify_authority": "catalog metadata and artwork only",
+                            "ytmusic_media_authority": "acquired song-audio reference",
+                            "spotify_audio_downloaded": False,
+                            "youtube_offset_method": MMS_OFFSET_METHOD_VERSION,
+                            "offset_lyrics_source": "LRCLIB"},
+                status="PRE_HOOK_READY",
+            )
+            # Merge rather than overwrite: the earlier Spotify/LRCLIB/offset stage
+            # records and stage fingerprints are intentionally retained.
+            existing_pre = {}
+            if final_json.is_file():
+                try: existing_pre = json.loads(final_json.read_text(encoding="utf-8"))
+                except Exception: existing_pre = {}
+            pre = self._merge_json_dict(existing_pre, pre)
+            pre.setdefault("unified_pipeline", {})["outputs"] = {
+                "mp3": display_path(final_mp3, self.cfg.root), "lrc": display_path(final_lrc, self.cfg.root),
+                "wordlevel_lrc": display_path(final_wlrc, self.cfg.root), "json": display_path(final_json, self.cfg.root),
                 "8d_mp3": display_path(final_8d, self.cfg.root),
-            }, "hashes": {"mp3": sha256_file(final_mp3), "lrc": sha256_file(final_lrc), "wordlevel_lrc": sha256_file(final_wlrc), "8d_mp3": sha256_file(final_8d)}}}
+                "reel": display_path(self.cfg.reels_dir / f"{name}_reel.mp4", self.cfg.root),
+                "reel_json": display_path(self.cfg.reels_dir / f"{name}_reel.json", self.cfg.root),
+            }
+            pre.setdefault("unified_pipeline", {}).setdefault("stages", {}).update({
+                "demucs": {"status": "completed", "fingerprint": dem_fp},
+                "alignment": {"status": "completed", "fingerprint": align_fp, "word_count": len(words)},
+                "audio_8d": {"status": "completed", "fingerprint": eightd_fp},
+                "hook": {"status": "pending" if bool(self.cfg.get("hook.skip", False)) else "awaiting_selection"},
+                "reel": {"status": "pending_hook_selection"},
+            })
             write_json(final_json, pre, project_root=self.cfg.root)
             self.songs_db.update_song(key, pipeline_status="AUDIO_8D_READY", final_mp3_path=display_path(final_mp3, self.cfg.root), final_lrc_path=display_path(final_lrc, self.cfg.root), final_wordlevel_lrc_path=display_path(final_wlrc, self.cfg.root), final_json_path=display_path(final_json, self.cfg.root), final_8d_mp3_path=display_path(final_8d, self.cfg.root))
             eightd = final_8d
@@ -1035,6 +1412,7 @@ class Pipeline:
                     "youtube_video_id": video.video_id,
                     "youtube_video_url": video.video_url,
                     "youtube_offset_ms": int(offset["candidate_offset_ms"]),
+                    "youtube_offset_method": MMS_OFFSET_METHOD_VERSION,
                     "ytmusic_audio_video_id": acq.get("ytm_video_id"),
                     "ytmusic_audio_url": acq.get("ytm_url"),
                     "created_at": time.time(),
@@ -1043,6 +1421,14 @@ class Pipeline:
                 self._upsert_hook_queue_entry(queue_entry)
                 state["hook"] = {"status": "pending", "start_ms": None, "end_ms": None, "queue_file": display_path(self._hook_queue_path(), self.cfg.root)}
                 atomic_write_json(state_path, state)
+                self._write_progress_manifest(final_json, {
+                    "hook": {"status": "pending", "start_ms": None, "end_ms": None,
+                             "queue_file": display_path(self._hook_queue_path(), self.cfg.root)},
+                    "reel": {"status": "pending_hook_selection"},
+                    "unified_pipeline": {"status": "HOOK_PENDING", "stages": {
+                        "hook": {"status": "pending", "queue_file": display_path(self._hook_queue_path(), self.cfg.root)},
+                        "reel": {"status": "pending_hook_selection"}}},
+                })
                 self.songs_db.update_song(key, pipeline_status="HOOK_PENDING", terminal=0, terminal_reason="HOOK_SELECTION_DEFERRED")
                 self.playlist_db.set_status(serial, "pending", terminal=0, reason="HOOK_SELECTION_DEFERRED")
                 self.logger.info("Song serial=%s pre-hook package ready; hook deferred to %s", serial, self._hook_queue_path())
@@ -1068,7 +1454,8 @@ class Pipeline:
                 "work_dir": display_path(work, self.cfg.root), "duration_ms": int(acq["duration_ms"]),
                 "hook_start_time": fmt_ms(hs), "hook_end_time": fmt_ms(he), "hook_start_ms": hs, "hook_end_ms": he,
                 "youtube_video_id": video.video_id, "youtube_video_url": video.video_url,
-                "youtube_offset_ms": int(offset["candidate_offset_ms"]), "ytmusic_audio_video_id": acq.get("ytm_video_id"), "ytmusic_audio_url": acq.get("ytm_url"),
+                "youtube_offset_ms": int(offset["candidate_offset_ms"]), "youtube_offset_method": MMS_OFFSET_METHOD_VERSION,
+                "ytmusic_audio_video_id": acq.get("ytm_video_id"), "ytmusic_audio_url": acq.get("ytm_url"),
                 "updated_at": time.time(),
             })
 
@@ -1136,11 +1523,31 @@ class Pipeline:
                 ytmusic_audio={
                     "query": acq["ytm_query"], "selected_video_id": acq["ytm_video_id"], "selected_url": acq["ytm_url"],
                     "candidate": acq["ytm_candidate"], "candidates_considered": acq.get("ytm_candidates", []),
-                    "selection_rule": "first result matching Spotify duration within tolerance", "spotify_duration_ms": spotify_result.duration_ms,
+                    "selection_rule": "ranked title/artist/album/duration candidate selection", "spotify_duration_ms": spotify_result.duration_ms,
                     "actual_download_duration_ms": acq["duration_ms"],
                 },
                 youtube={
                     "visual_video": {"video_id": video.video_id, "url": video.video_url, "title": video.title, "query": query, "selection_rule": "first non-lyrics title result from title + album + video song hd; no duration", "selection_count": 1, "search_repeated_before_hook": False},
+                    "lyric_anchor": {
+                        "method_version": MMS_OFFSET_METHOD_VERSION,
+                        "path": display_path(anchor_json, self.cfg.root),
+                        "sha256": sha256_file(anchor_json),
+                        "phrase_start_ms": ((anchor.get("chosen") or {}).get("phrase_start_ms")),
+                        "phrase_end_ms": ((anchor.get("chosen") or {}).get("phrase_end_ms")),
+                        "matched_word_count": ((anchor.get("chosen") or {}).get("matched_word_count")),
+                        "mean_word_confidence": ((anchor.get("chosen") or {}).get("mean_word_confidence")),
+                        "lyrics_source": "LRCLIB",
+                    },
+                    "reference_lyric_anchor": {
+                        "method_version": MMS_OFFSET_METHOD_VERSION,
+                        "path": display_path(reference_anchor_json, self.cfg.root),
+                        "sha256": sha256_file(reference_anchor_json),
+                        "phrase_start_ms": ((reference_anchor.get("chosen") or {}).get("phrase_start_ms")),
+                        "phrase_end_ms": ((reference_anchor.get("chosen") or {}).get("phrase_end_ms")),
+                        "matched_word_count": ((reference_anchor.get("chosen") or {}).get("matched_word_count")),
+                        "mean_word_confidence": ((reference_anchor.get("chosen") or {}).get("mean_word_confidence")),
+                        "lyrics_source": "LRCLIB",
+                    },
                     "offset": offset, "offset_candidates": candidates,
                 },
                 lyrics={
@@ -1148,7 +1555,9 @@ class Pipeline:
                     "source_lrc": str(lrc), "source_lrc_sha256": sha256_file(lrc),
                     "wordlevel_lrc": str(word_lrc), "wordlevel_lrc_sha256": sha256_file(word_lrc),
                     "strategy_version": str(self.cfg.get("lyrics.strategy_version", "lrclib-get-then-search-v2")),
-                    "telugu_script_gate": "passed", "provider_record": lres.raw,
+                    "telugu_script_gate": "passed", "provider_record": {"lyrics_id": lres.lyrics_id, "track_name": lres.track_name,
+                        "artist_name": lres.artist_name, "album_name": lres.album_name,
+                        "duration": lres.duration, "instrumental": lres.instrumental},
                 },
                 demucs=dem,
                 alignment=p2j.get("phase2", {}),
@@ -1200,6 +1609,19 @@ class Pipeline:
                 "8d_mp3": sha256_file(final_8d), "reel": sha256_file(reel_final), "reel_json": sha256_file(reel_json_final),
             }
             jsonp = final_json
+            if jsonp.is_file():
+                try:
+                    progress_data = json.loads(jsonp.read_text(encoding="utf-8"))
+                except Exception:
+                    progress_data = {}
+                final_json_obj = self._merge_json_dict(progress_data, final_json_obj)
+            final_json_obj.setdefault("unified_pipeline", {})["status"] = "FINALIZED"
+            final_json_obj.setdefault("unified_pipeline", {}).setdefault("stages", {}).update({
+                "hook": {"status": "completed", "start_ms": hs, "end_ms": he},
+                "reel": {"status": "completed", "path": display_path(reel_final, self.cfg.root),
+                         "json_path": display_path(reel_json_final, self.cfg.root),
+                         "validation_status": "passed" if bool(rv.get("overall")) else "failed"},
+            })
             write_json(jsonp, final_json_obj, project_root=self.cfg.root)
             self._validate_package(final_mp3, final_lrc, final_wlrc, final_8d, jsonp, spotify_result.duration_ms, reel_final, reel_json_final)
 
@@ -1266,18 +1688,26 @@ class Pipeline:
             state["last_error"] = {"type": type(exc).__name__, "message": str(exc), "code": str(exc).split(":", 1)[0], "at": time.time()}
             atomic_write_json(state_path, state)
             code = str(exc).split(":", 1)[0]
+            manifest_status = "MMS_OFFSET_NEEDS_REVIEW" if code.startswith("MMS_OFFSET_") or code == "YOUTUBE_OFFSET_REJECTED" else "ERROR"
+            self._write_progress_manifest(progress_json_path, {
+                "last_error": {"type": type(exc).__name__, "message": str(exc), "code": code, "at": time.time()},
+                "unified_pipeline": {"status": manifest_status, "stages": {
+                    "last_failed": {"status": "needs_review" if manifest_status == "MMS_OFFSET_NEEDS_REVIEW" else "error",
+                                    "error_code": code, "message": str(exc)}}},
+            })
             self.logger.exception("Song serial=%s failed", serial)
             self.songs_db.audit(key, "song_failed", "pipeline", "error", f"{type(exc).__name__}: {exc}", code)
-            if code == "YOUTUBE_OFFSET_REJECTED":
-                # Keep this as a reviewable state. Do not overwrite the more useful
-                # rejection status with a generic retryable error in the outer handler.
+            if code == "YOUTUBE_OFFSET_REJECTED" or code.startswith("MMS_OFFSET_"):
+                # An uncertain lyric anchor/offset requires review, never an energy-match fallback.
                 reasons = state.get("youtube_offset", {}).get("result", {}).get("rejection_reasons", [])
-                reason_text = ", ".join(reasons) or "Offset confidence below threshold"
-                self.songs_db.update_song(key, pipeline_status="YOUTUBE_OFFSET_REJECTED", quality_status="needs_review", terminal=0, terminal_reason=reason_text)
+                reason_text = ", ".join(reasons) or str(exc)
+                self.songs_db.update_song(key, pipeline_status="MMS_OFFSET_NEEDS_REVIEW", quality_status="needs_review", terminal=0, terminal_reason=reason_text)
                 self.playlist_db.set_status(serial, "needs_review", error_code=code, error_message=str(exc), terminal=0, reason=code)
+                self._sync_catalog()
                 return "needs_review"
             self.songs_db.update_song(key, pipeline_status="error", quality_status="failed", terminal=0, terminal_reason=None)
             self.playlist_db.set_status(serial, "error", error_code=code, error_message=str(exc), terminal=0, reason=code)
+            self._sync_catalog()
             return "error"
 
     @staticmethod

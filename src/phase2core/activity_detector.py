@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 
 from src.phase2core.audio import AudioManager
-from src.phase2core.types import ActivityResult
 from src.phase2core.utils import merge_intervals
 from src.common.gpu import resolve_device
 

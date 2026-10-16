@@ -1,9 +1,9 @@
 {
   "project": {
     "name": "Unified Spotify Playlist -> YT Music -> Telugu Word LRC -> Whole-song 8D -> Reel",
-    "version": "1.4.30-src-organized",
+    "version": "1.5.1-unified-db-mms-offset-v3",
     "plan": "PROJECT_PLAN.md",
-    "pipeline_version": "1.4.30-package-architecture-manifest-v2"
+    "pipeline_version": "1.5.1-unified-db-mms-offset-v3"
   },
   "playlist": {
     "provider": "spotify",
@@ -86,13 +86,16 @@
     "search_only_finalized": true
   },
   "youtube_offset": {
-    "frame_ms": 25,
-    "coarse_step_ms": 250,
-    "fine_step_ms": 25,
-    "min_match_score": 0.2,
-    "min_peak_margin": 0.04,
-    "ambiguity_window_ms": 1000,
-    "method_version": "full-song-energy-envelope-v3"
+    "anchor_word_count": 10,
+    "anchor_min_matched_words": 5,
+    "offset_min_matched_words": 5,
+    "search_window_seconds": 28,
+    "search_stride_seconds": 12,
+    "search_max_seconds": 300,
+    "anchor_min_word_confidence": 0.003,
+    "anchor_min_relative_score": 0.75,
+    "offset_max_mad_ms": 800,
+    "method_version": "mms-lrclib-dual-audio-offset-v3"
   },
   "models": {
     "mms_model": "facebook/mms-1b-all",
@@ -190,7 +193,5 @@
   "youtube_video_search": {
     "results_to_fetch": 20,
     "selection_rule": "title + album + video song hd; skip lyric/lyrics/lyrical titles; first remaining result; no duration filtering"
-  },
-  "version": "1.4.30-src-organized",
-  "pipeline_version": "1.4.30-package-architecture-manifest-v2"
+  }
 }

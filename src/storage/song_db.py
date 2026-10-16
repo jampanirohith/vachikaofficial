@@ -2,38 +2,29 @@ from __future__ import annotations
 import sqlite3, uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from src.common.metadata import normalize_isrc
 
 class SongsDB:
-    def __init__(self,path,schema_path=None):
-        self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True)
-        self.schema_path=Path(schema_path) if schema_path else Path(__file__).resolve().parents[2]/'database'/'songs_schema.sql'
+    """Song/state repository stored in the sole operational ``vachika.db`` file."""
+
+    def __init__(self, path, schema_path=None):
+        self.path = Path(path)
+        if self.path.name.lower() != "vachika.db":
+            raise ValueError(
+                "Vachika uses one operational database: pass db/vachika.db. "
+                "Legacy stores may only be opened by the migration subsystem."
+            )
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.schema_path = Path(schema_path) if schema_path else Path(__file__).resolve().parents[2] / "database" / "songs_schema.sql"
         self.initialize()
     def connect(self):
         c=sqlite3.connect(self.path,timeout=60);c.row_factory=sqlite3.Row;c.execute('PRAGMA foreign_keys=ON');c.execute('PRAGMA busy_timeout=60000');c.execute('PRAGMA synchronous=FULL');return c
-    DB_SCHEMA_NAME = 'unified_songs'
-    DB_SCHEMA_VERSION = '4.0.0'
-    DB_USER_VERSION = 400
-    def _schema_identity(self):
-        if not self.path.exists() or self.path.stat().st_size == 0:return None,None
-        try:
-            with self.connect() as c:
-                rows=dict(c.execute("SELECT key,value FROM schema_meta WHERE key IN ('schema_name','schema_version')").fetchall())
-                return rows.get('schema_name'),rows.get('schema_version')
-        except sqlite3.DatabaseError:return None,None
-    def _quarantine_legacy(self):
-        legacy=self.path.with_name(self.path.stem+'.legacy.db');idx=1
-        while legacy.exists():
-            legacy=self.path.with_name(self.path.stem+f'.legacy-{idx}.db');idx+=1
-        self.path.replace(legacy);return legacy
     def initialize(self):
-        name,version=self._schema_identity()
-        if name and (name!=self.DB_SCHEMA_NAME or version!=self.DB_SCHEMA_VERSION):self._quarantine_legacy()
-        elif self.path.exists() and self.path.stat().st_size>0 and not name:self._quarantine_legacy()
         with self.connect() as c:
-            c.executescript(self.schema_path.read_text(encoding='utf-8'));c.execute(f'PRAGMA user_version={self.DB_USER_VERSION}');c.commit()
+            sql = self.schema_path.read_text(encoding="utf-8").replace("schema_meta", "songs_schema_meta")
+            c.executescript(sql)
+            c.commit()
     def one(self,q,args=()):
         with self.connect() as c:
             r=c.execute(q,args).fetchone();return dict(r) if r else None
@@ -105,10 +96,29 @@ class SongsDB:
             c.commit()
     def upsert_youtube(self,key,values):self._upsert('youtube_matches','song_key',key,values)
     def upsert_ytmusic_audio(self,key,values):self._upsert('ytmusic_audio_matches','song_key',key,values)
-    def add_youtube_candidates(self,key,candidates):
+    def replace_youtube_offset_evidence(self, key, matched_words):
+        """Persist the word-by-word MMS evidence used to calculate the offset."""
+        rows = []
+        for word in matched_words or []:
+            try:
+                rows.append((
+                    str(key), int(word["line_index"]), int(word["word_index"]),
+                    str(word.get("word") or ""), int(word["reference_start_ms"]),
+                    int(word["youtube_start_ms"]), int(word["offset_ms"]),
+                    float(word.get("reference_confidence") or 0.0),
+                    float(word.get("youtube_confidence") or 0.0), 1,
+                ))
+            except (KeyError, TypeError, ValueError):
+                continue
         with self.connect() as c:
-            c.execute('DELETE FROM youtube_offset_candidates WHERE song_key=?',(key,))
-            for x in candidates:c.execute('INSERT INTO youtube_offset_candidates(song_key,candidate_offset_ms,total_score,waveform_score,energy_score,peak_valley_score,transition_score,accepted,rejection_reason) VALUES(?,?,?,?,?,?,?,?,?)',(key,x['candidate_offset_ms'],x['total_score'],x.get('waveform_score'),x.get('energy_score'),x.get('peak_valley_score'),x.get('transition_score'),int(x.get('accepted',False)),x.get('rejection_reason')))
+            c.execute("DELETE FROM youtube_offset_evidence WHERE song_key=?", (str(key),))
+            c.executemany(
+                """INSERT INTO youtube_offset_evidence(
+                    song_key,line_index,word_index,word_text,reference_start_ms,youtube_start_ms,
+                    offset_ms,reference_confidence,youtube_confidence,accepted
+                ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                rows,
+            )
             c.commit()
     def upsert_lyric_source(self,key,values):self._upsert('lyric_sources','song_key',key,values)
     def upsert_demucs(self,key,values):

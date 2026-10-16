@@ -435,7 +435,7 @@ def metadata_field_names(*, include_raw: bool = False) -> list[str]:
 
 
 def normalized_metadata_from_record(record: Mapping[str, Any]) -> NormalizedMetadata:
-    """Rebuild normalized metadata from a stored songs.db row for library re-tagging."""
+    """Rebuild normalized metadata from a stored song metadata row for library re-tagging."""
     artists_raw = record.get("artists_json")
     if isinstance(artists_raw, str):
         try:

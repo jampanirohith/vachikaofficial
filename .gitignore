@@ -11,7 +11,9 @@ venv/
 # Generated project state and media
 logs/
 temp/
-db/
+db/*
+!db/README.md
+!db/songs.json
 songs/
 reels/
 

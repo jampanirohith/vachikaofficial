@@ -11,6 +11,7 @@ import pytest
 def test_custom_config_path_is_preserved(tmp_path):
     from src.config import Config
     source = json.loads(Path("config.json.example").read_text(encoding="utf-8"))
+    source["playlist"]["spotify_playlist_id"] = "TEST_PLAYLIST"
     custom = tmp_path / "nested" / "custom-settings.json"
     custom.parent.mkdir()
     custom.write_text(json.dumps(source), encoding="utf-8")
@@ -51,27 +52,13 @@ def test_demucs_stems_are_only_reused_with_provenance_manifest(monkeypatch, tmp_
     assert all(entry["source_attempt_dir"] == str(calls[0][0]) for entry in manifest["stems"].values())
 
 
-def test_offset_estimator_rejects_unrelated_low_score_audio():
-    from src.video.synchronization import _scan_full_song
-    rng = np.random.default_rng(7)
-    ref = rng.normal(size=100).astype(np.float32)
-    yt = rng.normal(size=360).astype(np.float32)
-    result, _ = _scan_full_song(ref, yt, frame_ms=25, coarse_step_ms=50,
-                                fine_step_ms=25, min_match_score=0.75)
-    assert result["accepted"] is False
-    assert "score_below_minimum" in result["rejection_reasons"]
-
-
-def test_offset_estimator_rejects_two_equally_good_distant_matches():
-    from src.video.synchronization import _scan_full_song
-    rng = np.random.default_rng(29)
-    ref = rng.normal(size=40).astype(np.float32)
-    yt = np.concatenate([np.zeros(8), ref, np.zeros(60), ref, np.zeros(12)]).astype(np.float32)
-    result, _ = _scan_full_song(ref, yt, frame_ms=25, coarse_step_ms=25,
-                                fine_step_ms=25, min_match_score=0.5,
-                                min_peak_margin=0.05, ambiguity_window_ms=500)
-    assert result["accepted"] is False
-    assert "ambiguous_competing_peak" in result["rejection_reasons"]
+def test_removed_energy_envelope_offset_estimator_is_not_imported():
+    from pathlib import Path
+    assert not Path("src/video/synchronization.py").exists()
+    pipeline = Path("src/orchestration/pipeline.py").read_text(encoding="utf-8")
+    assert "calculate_offset_from_anchors" in pipeline
+    assert "waveform_score" not in pipeline
+    assert "energy_score" not in pipeline
 
 
 def test_source_16k_cache_rebuilds_when_content_changes(monkeypatch, tmp_path):
@@ -234,13 +221,15 @@ def test_db_backup_restore_uses_custom_configured_directory(tmp_path):
     from src.storage.reel_db import ReelsDB
     custom_db = tmp_path / "configured-data" / "sqlite"
     custom_db.mkdir(parents=True)
-    PlaylistDB(custom_db / "playlist.db")
-    SongsDB(custom_db / "songs.db")
-    ReelsDB(custom_db / "reels.db")
+    unified = custom_db / "vachika.db"
+    PlaylistDB(unified)
+    SongsDB(unified)
+    ReelsDB(unified)
     backup = backup_databases(tmp_path, tmp_path / "backups", custom_db)
-    (custom_db / "songs.db").write_bytes(b"invalid")
+    unified.write_bytes(b"invalid")
     restore_databases(tmp_path, backup, custom_db)
-    assert all(integrity_check(custom_db / f"{name}.db") == "ok" for name in ("playlist", "songs", "reels"))
+    assert integrity_check(unified) == "ok"
+    assert not any((custom_db / f"{name}.db").exists() for name in ("playlist", "songs", "reels"))
     assert (backup / "manifest.json").is_file()
 
 
@@ -367,6 +356,7 @@ def test_video_source_cache_checks_media_hash(monkeypatch, tmp_path):
 def test_config_rejects_contradictory_cuda_and_cpu_fallback_policy(tmp_path):
     from src.config import Config
     payload = json.loads(Path("config.json.example").read_text(encoding="utf-8"))
+    payload["playlist"]["spotify_playlist_id"] = "TEST_PLAYLIST"
     payload["runtime"]["require_cuda"] = True
     payload["runtime"]["allow_cpu_fallback"] = True
     path = tmp_path / "config.json"
@@ -520,8 +510,9 @@ def test_config_default_path_is_independent_of_current_directory(monkeypatch, tm
     from src.config import Config
 
     monkeypatch.chdir(tmp_path)
-    cfg = Config.load()
-    assert cfg.config_file == (Path(__file__).resolve().parents[1] / "config.json").resolve()
+    cfg = Config.load(require_playlist=False)
+    expected = Path(__file__).resolve().parents[1] / ("config.json" if (Path(__file__).resolve().parents[1] / "config.json").is_file() else "config.json.example")
+    assert cfg.config_file == expected.resolve()
     assert cfg.root == cfg.config_file.parent
 
 
@@ -553,3 +544,33 @@ def test_source_implementations_use_canonical_packages_not_root_aliases():
         "youtube_video.py", "youtube_sync.py", "db_songs.py", "db_reels.py",
     ):
         assert not (source_root / obsolete).exists()
+
+
+def test_config_example_has_one_canonical_release_version():
+    """Prevent stale root-level version fields from shadowing project metadata."""
+    def reject_duplicate_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise AssertionError(f"duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    config = json.loads(
+        Path("config.json.example").read_text(encoding="utf-8"),
+        object_pairs_hook=reject_duplicate_keys,
+    )
+    project = config["project"]
+    assert project["version"] == project["pipeline_version"]
+    assert project["version"] == "1.5.1-unified-db-mms-offset-v3"
+    assert "version" not in config
+    assert "pipeline_version" not in config
+
+
+def test_clean_release_has_empty_songs_catalog_scaffold():
+    """The catalog path exists in a clean extraction but contains no user data."""
+    catalog = json.loads(Path("db/songs.json").read_text(encoding="utf-8"))
+    assert catalog["schema_version"] == 1
+    assert catalog["song_count"] == 0
+    assert catalog["songs"] == []
+    assert "vachika.db" in catalog["authority"]

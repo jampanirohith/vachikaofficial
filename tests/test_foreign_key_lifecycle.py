@@ -3,7 +3,7 @@ from pathlib import Path
 
 def test_parent_song_exists_before_stage_and_audit(tmp_path):
     from src.storage.song_db import SongsDB
-    db = SongsDB(tmp_path / "songs.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
+    db = SongsDB(tmp_path / "vachika.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
     key = "1_spotify123"
     db.ensure_song({"song_key": key, "playlist_serial": 1, "spotify_track_id": "spotify123", "title": "X", "artist": "A", "pipeline_status": "PROCESSING"})
     rid = db.stage_start(key, "spotify_metadata", "fp1", tmp_path / "x.json")
@@ -15,7 +15,7 @@ def test_parent_song_exists_before_stage_and_audit(tmp_path):
 
 def test_stage_and_audit_failures_are_not_second_fk_errors(tmp_path):
     from src.storage.song_db import SongsDB
-    db = SongsDB(tmp_path / "songs.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
+    db = SongsDB(tmp_path / "vachika.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
     key = "2_spotify456"
     db.ensure_song({"song_key": key, "playlist_serial": 2, "spotify_track_id": "spotify456", "pipeline_status": "PROCESSING"})
     rid = db.stage_start(key, "spotify_metadata", "fp2")
@@ -42,8 +42,8 @@ def test_pipeline_bootstraps_song_before_spotify_stage(tmp_path, monkeypatch):
             pass
         def audit(self, *args, **kwargs):
             pass
-    sdb = SongsDB(tmp_path/"songs.db", Path(__file__).resolve().parents[1]/"database"/"songs_schema.sql")
-    rdb = ReelsDB(tmp_path/"reels.db", Path(__file__).resolve().parents[1]/"database"/"reels_schema.sql")
+    sdb = SongsDB(tmp_path/"vachika.db", Path(__file__).resolve().parents[1]/"database"/"songs_schema.sql")
+    rdb = ReelsDB(tmp_path/"vachika.db", Path(__file__).resolve().parents[1]/"database"/"reels_schema.sql")
     pdb = FakePlaylistDB()
     pipeline = Pipeline(cfg,pdb,sdb,rdb)
     def fail(*args, **kwargs):
@@ -59,14 +59,14 @@ def test_pipeline_bootstraps_song_before_spotify_stage(tmp_path, monkeypatch):
 
 def test_bootstrap_null_duration_is_normalized(tmp_path):
     from src.storage.song_db import SongsDB
-    db = SongsDB(tmp_path / "songs.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
+    db = SongsDB(tmp_path / "vachika.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
     row = db.ensure_song({"song_key":"null-duration","playlist_serial":1,"spotify_track_id":"sp","title":"X","artist":"A","duration_ms":None})
     assert row["duration_ms"] == 0
 
 
 def test_stage_start_defensively_creates_missing_parent(tmp_path):
     from src.storage.song_db import SongsDB
-    db = SongsDB(tmp_path / "songs.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
+    db = SongsDB(tmp_path / "vachika.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
     rid = db.stage_start("missing-parent","spotify_metadata","fp")
     assert db.one("SELECT song_key FROM songs WHERE song_key=?", ("missing-parent",))["song_key"] == "missing-parent"
     assert db.one("SELECT run_id FROM stage_runs WHERE run_id=?", (rid,))["run_id"] == rid
@@ -74,6 +74,6 @@ def test_stage_start_defensively_creates_missing_parent(tmp_path):
 
 def test_audit_defensively_creates_missing_parent(tmp_path):
     from src.storage.song_db import SongsDB
-    db = SongsDB(tmp_path / "songs.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
+    db = SongsDB(tmp_path / "vachika.db", Path(__file__).resolve().parents[1] / "database" / "songs_schema.sql")
     db.audit("missing-audit-parent","song_failed","pipeline","error","boom","TEST")
     assert db.one("SELECT song_key FROM audit_events WHERE song_key=?", ("missing-audit-parent",))["song_key"] == "missing-audit-parent"

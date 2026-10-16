@@ -1,3 +1,10 @@
+"""Legacy energy-envelope matcher retained for diagnostics/backward compatibility.
+
+The active pipeline does NOT import or call this module for offset calculation.
+Offsets are produced exclusively by MMS/CTC lyric-anchor alignment in
+``src.video.lyric_offset``. Do not wire this matcher back as a silent fallback.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -10,14 +10,15 @@ VALID_STATUSES = {"pending", "processing", "completed", "skipped", "duplicate", 
 
 
 class PlaylistDB:
-    """Durable, immutable-in-order Spotify playlist snapshot database."""
-
-    SCHEMA_NAME = "spotify_playlist_snapshot"
-    SCHEMA_VERSION = "4.0.0"
-    DB_USER_VERSION = 400
+    """Playlist repository whose tables live only in ``db/vachika.db``."""
 
     def __init__(self, path, schema_path=None):
         self.path = Path(path)
+        if self.path.name.lower() != "vachika.db":
+            raise ValueError(
+                "Vachika uses one operational database: pass db/vachika.db. "
+                "Legacy stores may only be opened by the migration subsystem."
+            )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.schema_path = Path(schema_path) if schema_path else Path(__file__).resolve().parents[2] / "database" / "playlist_schema.sql"
         self.initialize()
@@ -30,35 +31,10 @@ class PlaylistDB:
         c.execute("PRAGMA synchronous=FULL")
         return c
 
-    def _schema_identity(self):
-        if not self.path.exists() or self.path.stat().st_size == 0:
-            return None, None
-        try:
-            with self.connect() as c:
-                rows = dict(c.execute("SELECT key,value FROM schema_meta WHERE key IN ('schema_name','schema_version')").fetchall())
-                return rows.get('schema_name'), rows.get('schema_version')
-        except sqlite3.DatabaseError:
-            return None, None
-
-    def _quarantine_legacy(self):
-        legacy = self.path.with_name(self.path.stem + ".legacy.db")
-        idx = 1
-        while legacy.exists():
-            legacy = self.path.with_name(self.path.stem + f".legacy-{idx}.db")
-            idx += 1
-        self.path.replace(legacy)
-        return legacy
-
     def initialize(self):
-        existing_name, existing_version = self._schema_identity()
-        if existing_name and (existing_name != self.SCHEMA_NAME or existing_version != self.SCHEMA_VERSION):
-            self._quarantine_legacy()
-        elif self.path.exists() and self.path.stat().st_size > 0 and not existing_name:
-            # A non-conforming/unknown DB must never be silently mutated into the new schema.
-            self._quarantine_legacy()
         with self.connect() as c:
-            c.executescript(self.schema_path.read_text(encoding="utf-8"))
-            c.execute(f"PRAGMA user_version={self.DB_USER_VERSION}")
+            sql = self.schema_path.read_text(encoding="utf-8").replace("schema_meta", "playlist_schema_meta")
+            c.executescript(sql)
             c.commit()
 
     def one(self, q: str, args=()):

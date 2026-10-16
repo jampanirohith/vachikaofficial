@@ -1,7 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from mutagen.id3 import ID3, ID3NoHeaderError, TIT2, TPE1, TALB, TPE2, TDRC, TRCK, TPOS, TSRC, TCON, TCOP, TPUB, TCOM, TBPM, TLAN, COMM, TXXX, USLT, APIC, SYLT, Encoding
-from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, ID3NoHeaderError, TIT2, TPE1, TALB, TPE2, TDRC, TRCK, TPOS, TSRC, TCON, TCOP, TPUB, TCOM, TBPM, TLAN, TXXX, APIC, SYLT
 from src.common.hashing import sha256_file
 
 def _first_text(tag,key):

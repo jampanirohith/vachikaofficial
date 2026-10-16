@@ -1,3 +1,22 @@
+# 1.5.1-unified-db-mms-offset-v3
+
+- Added a first-run `--download-models` command alias; model preparation and diagnostics can load the example config without a playlist ID or runtime config file.
+- Added explicit `--load-playlist` and `--process-playlist` commands, with mutually exclusive command modes.
+- Consolidated playlist, song, Reel and Phase-2 operational tables into `db/vachika.db`; Phase-2 tables are namespaced and per-song DB identities no longer all use `master`.
+- Added integrity-checked migration/archives for legacy `playlist.db`, `songs.db`, `reels.db` and per-song Phase-2 databases; added atomic `db/songs.json` catalog generation.
+- Changed offset calculation to MMS/CTC-only LRCLIB lyric-anchor search on both the acquired YT Music reference audio and exact selected YouTube video's audio. Offset is the robust median of paired word-timestamp differences, with MAD/word-count/confidence rejection and no energy matcher fallback. Candidate selection filters weak forced alignments relative to the strongest candidate before choosing the earliest credible occurrence.
+- Updated dependency ordering to Spotify metadata → LRCLIB synced lyrics/script gate → YT Music reference audio → YouTube visual search/audio → MMS offset → Demucs/full word-LRC/8D/hook/Reel.
+- Made song JSON a progressive per-song manifest across media selection, both lyric anchors, offset evidence, audio stages, hook and Reel. Skipped LRC records now point to their canonical skipped JSON and do not leave a misleading final-folder stub.
+- Invalidated old hook queue entries whose offset method or per-song manifest does not match the MMS-only method, preventing use of stale energy-offset values after upgrade.
+- Removed the last active adapter paths that could initialize `playlist.db`, `songs.db` or `reels.db`; repository adapters now reject any operational database path other than `vachika.db`.
+- Fixed a migration gap: old per-workspace Phase-2 `phase2.sqlite` rows (songs, chunks, aligned words, instrumental sections, processing logs and runs) are now ID-remapped and imported into `phase2_*` tables before integrity-verified originals are archived.
+- Fixed duplicate migration-manifest entries and ensured offset-schema cleanup, three-store migration and Phase-2 imports are recorded as one accurate migration event.
+- Fixed current README/configuration/upgrade instructions to use the supported explicit CLI commands and actual database migration behavior. Removed obsolete pre-unification audit reports that contradicted the current storage/offset architecture.
+- Removed the unused `src/video/synchronization.py` energy-envelope offset implementation and legacy offset-score schema; old offsets are invalidated during migration and must be recomputed using MMS/CTC lyric anchors.
+- Validation: automated test count and build hashes are recorded in the final build manifest. A real authenticated song-to-Reel execution and target GPU/media-quality checks remain unverified.
+
+---
+
 # 1.4.30-src-organized
 
 - Completed a fresh cross-check against the historical pre-repair audit and kept the remaining target-machine checks clearly marked rather than claiming they passed.
@@ -177,7 +196,7 @@
 
 ## Historical releases
 
-Earlier Phase 1/2/3 and v1.1.x/v1.3.x changes remain in the archived project material and historical audit records. They are not active runtime instructions when they conflict with `PROJECT_PLAN.md`.
+Earlier Phase 1/2/3 and v1.1.x/v1.3.x changes remain here as historical change records. Superseded pre-unification audit reports have been removed from the distribution. Historical entries are not active runtime instructions when they conflict with `PROJECT_PLAN.md`.
 
 ## 1.4.2-final
 - Finalized Spotify-first playlist authority and exact playlist-order processing contract.

@@ -11,13 +11,12 @@ import time
 from pathlib import Path
 
 from src.config import Config
-from src.storage.playlist_db import PlaylistDB
-from src.storage.song_db import SongsDB
-from src.storage.reel_db import ReelsDB
 from src.orchestration.recovery import Recovery
 from src.diagnostics.doctor import run_doctor
 from src.storage.maintenance import backup_databases, restore_databases, migrate_databases, integrity_check
 from src.providers.spotify import SpotifyClient, SpotifyError
+from src.storage.unified_db import initialize_unified_database
+from src.storage.song_catalog import sync_songs_json
 
 
 def logger(cfg):
@@ -51,7 +50,7 @@ def playlist_snapshot(cfg, pdb, log):
         if current.get("ingestion_status") != "done" or int(current.get("entry_count") or 0) == 0:
             raise SystemExit(
                 f"Playlist {playlist_id} exists but does not contain a committed Spotify snapshot. "
-                "The normal run will not re-fetch an existing playlist ID. Restore or inspect playlist.db."
+                "The normal run will not re-fetch an existing playlist ID. Restore or inspect db/vachika.db."
             )
         print(f"Using frozen Spotify playlist snapshot {playlist_id}; no playlist re-fetch will occur.", flush=True)
         return "existing"
@@ -104,6 +103,12 @@ def _state_path(cfg, entry):
 
 
 def invalidate_stage(cfg, pdb, sdb, rdb, stage, serial):
+    """Invalidate one stage and its true downstream dependencies.
+
+    The offset now depends on LRCLIB, YT Music reference audio, the selected YouTube
+    audio, and MMS configuration, but deliberately does *not* depend on Demucs or the
+    later full-song word-LRC stage.
+    """
     entry = pdb.get_entry(serial)
     if not entry:
         return False, "song serial not found"
@@ -111,16 +116,22 @@ def invalidate_stage(cfg, pdb, sdb, rdb, stage, serial):
     state_path = _state_path(cfg, entry)
     state = {}
     if state_path.exists():
-        try: state = json.loads(state_path.read_text(encoding="utf-8"))
-        except Exception: state = {}
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except Exception:
+            state = {}
+
     downstream = {
-        "spotify": ("spotify_metadata", "ytmusic_audio", "youtube", "youtube_offset", "lyrics", "demucs", "alignment", "8d", "hook", "reel"),
-        "spotify_metadata": ("spotify_metadata", "ytmusic_audio", "youtube", "youtube_offset", "lyrics", "demucs", "alignment", "8d", "hook", "reel"),
-        "ytmusic_audio": ("ytmusic_audio", "youtube", "youtube_offset", "lyrics", "demucs", "alignment", "8d", "hook", "reel"),
-        "youtube_selection": ("youtube", "youtube_offset", "hook", "reel"),
-        "youtube": ("youtube", "youtube_offset", "hook", "reel"),
+        "spotify": ("spotify_metadata", "lyrics", "ytmusic_audio", "youtube", "reference_lyric_anchor", "youtube_lyric_anchor", "youtube_offset", "demucs", "alignment", "8d", "hook", "reel"),
+        "spotify_metadata": ("spotify_metadata", "lyrics", "ytmusic_audio", "youtube", "reference_lyric_anchor", "youtube_lyric_anchor", "youtube_offset", "demucs", "alignment", "8d", "hook", "reel"),
+        "lrclib": ("lyrics", "reference_lyric_anchor", "youtube_lyric_anchor", "youtube_offset", "alignment", "8d", "hook", "reel"),
+        "lyrics": ("lyrics", "reference_lyric_anchor", "youtube_lyric_anchor", "youtube_offset", "alignment", "8d", "hook", "reel"),
+        "ytmusic_audio": ("ytmusic_audio", "reference_lyric_anchor", "youtube_offset", "demucs", "alignment", "8d", "hook", "reel"),
+        "youtube_selection": ("youtube", "youtube_lyric_anchor", "youtube_offset", "hook", "reel"),
+        "youtube": ("youtube", "youtube_lyric_anchor", "youtube_offset", "hook", "reel"),
+        "reference_lyric_anchor": ("reference_lyric_anchor", "youtube_offset", "hook", "reel"),
+        "youtube_lyric_anchor": ("youtube_lyric_anchor", "youtube_offset", "hook", "reel"),
         "youtube_offset": ("youtube_offset", "hook", "reel"),
-        "lyrics": ("lyrics", "alignment", "8d", "hook", "reel"),
         "demucs": ("demucs", "alignment", "8d", "hook", "reel"),
         "alignment": ("alignment", "8d", "hook", "reel"),
         "8d": ("8d", "hook", "reel"),
@@ -128,29 +139,65 @@ def invalidate_stage(cfg, pdb, sdb, rdb, stage, serial):
         "hook": ("hook", "reel"),
         "reel": ("reel",),
     }
-    stage = str(stage).lower()
-    if stage not in downstream: return False, f"unsupported stage: {stage}"
-    for state_key in downstream[stage]: state.pop(state_key, None)
+    stage = str(stage).lower().strip()
+    if stage not in downstream:
+        return False, f"unsupported stage: {stage}"
+    for state_key in downstream[stage]:
+        state.pop(state_key, None)
+
     work = cfg.work_dir / key
-    dirs = {
-        "spotify": [work / "metadata"], "spotify_metadata": [work / "metadata"], "ytmusic_audio": [work / "acquisition"],
-        "youtube_selection": [work / "youtube"], "youtube": [work / "youtube"], "youtube_offset": [work / "youtube" / "reference_audio.wav"],
-        "lyrics": [work / "lyrics", work / "alignment", work / "audio" / "8d", work / "final_reel"],
-        "demucs": [work / "audio" / "stems", work / "alignment", work / "audio" / "8d", work / "final_reel"],
-        "alignment": [work / "alignment", work / "audio" / "8d", work / "final_reel"],
-        "8d": [work / "audio" / "8d", work / "final_reel"], "audio_8d": [work / "audio" / "8d", work / "final_reel"],
-        "hook": [work / "final_reel"], "reel": [work / "final_reel"],
-    }
-    for target in dirs.get(stage, []):
-        if target.is_dir(): shutil.rmtree(target, ignore_errors=True)
-        elif target.exists(): target.unlink(missing_ok=True)
-    state["forced_rebuild_stage"] = stage; state["forced_rebuild_requested_at"] = time.time()
-    state_path.parent.mkdir(parents=True, exist_ok=True); state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    workspaces = [work, *sorted(work.glob("source_*"))]
+    targets = []
+    # Stage-specific locations relative to the key workspace.
+    if stage in {"spotify", "spotify_metadata"}:
+        targets.extend([work / "metadata"])
+    if stage in {"spotify", "spotify_metadata", "ytmusic_audio"}:
+        targets.extend([work / "acquisition"])
+    if stage in {"spotify", "spotify_metadata", "lrclib", "lyrics"}:
+        targets.extend([work / "lyrics"])
+    if stage in {"spotify", "spotify_metadata", "youtube_selection", "youtube"}:
+        targets.extend(ws / "youtube" for ws in workspaces)
+    else:
+        if stage in {"reference_lyric_anchor"}:
+            targets.extend(ws / "reference_audio" for ws in workspaces)
+        if stage in {"youtube_lyric_anchor"}:
+            targets.extend(ws / "youtube" / "lyric_anchor.json" for ws in workspaces)
+        if stage == "youtube_offset":
+            targets.extend(ws / "youtube" / "offset.json" for ws in workspaces)
+
+    if stage in {"lyrics", "lrclib", "spotify", "spotify_metadata", "ytmusic_audio"}:
+        targets.extend(ws / "alignment" for ws in workspaces)
+        targets.extend(ws / "audio" / "8d" for ws in workspaces)
+        targets.extend(ws / "final_reel" for ws in workspaces)
+    elif stage == "demucs":
+        for ws in workspaces:
+            targets.extend([ws / "audio" / "stems", ws / "alignment", ws / "audio" / "8d", ws / "final_reel"])
+    elif stage == "alignment":
+        for ws in workspaces:
+            targets.extend([ws / "alignment", ws / "audio" / "8d", ws / "final_reel"])
+    elif stage in {"8d", "audio_8d"}:
+        for ws in workspaces:
+            targets.extend([ws / "audio" / "8d", ws / "final_reel"])
+    elif stage == "hook":
+        targets.extend(ws / "final_reel" for ws in workspaces)
+    elif stage == "reel":
+        targets.extend(ws / "final_reel" for ws in workspaces)
+
+    for target in dict.fromkeys(targets):
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+        elif target.exists():
+            target.unlink(missing_ok=True)
+
+    state["forced_rebuild_stage"] = stage
+    state["forced_rebuild_requested_at"] = time.time()
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     pdb.set_status(serial, "pending", terminal=0, reason=f"FORCE_REBUILD_{stage}")
     sdb.update_song(key, pipeline_status="pending", terminal=0, terminal_reason=f"FORCE_REBUILD_{stage}")
-    if stage in {"hook", "reel"}: rdb.update(f"{key}_reel_v1", pipeline_status="pending", terminal=0, terminal_reason=f"FORCE_REBUILD_{stage}")
+    if stage in {"hook", "reel"}:
+        rdb.update(f"{key}_reel_v1", pipeline_status="pending", terminal=0, terminal_reason=f"FORCE_REBUILD_{stage}")
     return True, f"invalidated {stage} and downstream dependencies"
-
 
 def reset_skipped(cfg, pdb, sdb, serial):
     entry = pdb.get_entry(serial)
@@ -176,7 +223,7 @@ def print_status(cfg, pdb, sdb, rdb, playlist_id):
     print(f"Done: {bool(playlist.get('playlist_done'))}")
     for status, count in sorted(pdb.counts(playlist_id).items()): print(f"{status:12} {count}")
     print("DB integrity:")
-    for name in ("playlist", "songs", "reels"): print(f"  {name}: {integrity_check(cfg.db_dir / f'{name}.db')}")
+    print(f"  vachika: {integrity_check(cfg.db_dir / 'vachika.db')}")
 
 
 def print_review(cfg, pdb, sdb, rdb, serial):
@@ -203,10 +250,11 @@ def print_review(cfg, pdb, sdb, rdb, serial):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default=None, help="Configuration file (defaults to the config.json beside main.py)")
+    parser.add_argument("--config", default=None, help="Configuration file (defaults to config.json, or config.json.example when config.json is absent)")
     parser.add_argument("--doctor", action="store_true")
     parser.add_argument("--status", action="store_true")
-    parser.add_argument("--ingest-only", action="store_true")
+    parser.add_argument("--load-playlist", action="store_true", help="Fetch and freeze the Spotify playlist only; do not process songs")
+    parser.add_argument("--process-playlist", action="store_true", help="Process an already-frozen playlist; refuses to fetch a new snapshot")
     parser.add_argument("--single")
     parser.add_argument("--retry-errors", action="store_true")
     parser.add_argument("--resume", action="store_true")
@@ -216,15 +264,34 @@ def main():
     parser.add_argument("--review", metavar="SONG")
     parser.add_argument("--backup-db", metavar="DIR")
     parser.add_argument("--restore-db", metavar="DIR")
-    parser.add_argument("--check-db", "--migrate-db", dest="check_db", action="store_true", help="Verify configured SQLite databases (legacy --migrate-db alias; does not migrate schema)")
+    parser.add_argument("--check-db", "--migrate-db", dest="check_db", action="store_true",
+                        help="Migrate any legacy stores into db/vachika.db, refresh db/songs.json, then verify integrity")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--prepare-models", "--download-models", dest="prepare_models", action="store_true",
                         help="Download/cache all pipeline ML models without processing songs")
     args = parser.parse_args()
 
-    print("Unified Spotify Playlist -> YT Music Audio -> Word LRC -> Whole-song 8D -> Reel pipeline", flush=True)
+    if args.load_playlist and args.process_playlist:
+        parser.error("--load-playlist and --process-playlist are separate commands; run them in separate invocations")
+    if args.prepare_models and (args.load_playlist or args.process_playlist or args.single or args.retry_errors or args.resume):
+        parser.error("--download-models is a standalone preparation command; run it separately from playlist processing")
+
+    print("Vachika: Spotify metadata -> LRCLIB lyrics -> YT Music audio + YouTube video search -> MMS-only LRCLIB offset -> Demucs/alignment/8D/Reel", flush=True)
     print("Loading configuration...", flush=True)
-    cfg = Config.load(args.config)
+    config_arg = args.config
+    if config_arg is None:
+        default_config = Path(__file__).resolve().parent / "config.json"
+        example_config = Path(__file__).resolve().parent / "config.json.example"
+        if default_config.is_file():
+            config_arg = default_config
+        elif example_config.is_file():
+            config_arg = example_config
+            print("NOTICE: config.json is absent; using config.json.example for configuration defaults. Copy it to config.json and fill in credentials before processing.", flush=True)
+    commands_not_requiring_playlist = any((
+        args.prepare_models, args.doctor, args.dry_run, args.status,
+        args.check_db, bool(args.backup_db), bool(args.restore_db),
+    ))
+    cfg = Config.load(config_arg, require_playlist=not commands_not_requiring_playlist)
 
     if args.prepare_models:
         from src.common.model_cache import prepare_models
@@ -233,15 +300,22 @@ def main():
             suffix = f": {item.get('error')}" if item.get("status") != "ready" else ""
             print(f"{name}: {item.get('status')}{suffix}")
         print(f"Model cache: {report.get('models_dir')}")
-        print(f"Preparation manifest: {cfg.path('paths.models_dir') / 'preparation_manifest.json'}")
+        models_dir = cfg.path('paths.models_dir') or (cfg.root / "models")
+        print(f"Preparation manifest: {models_dir / 'preparation_manifest.json'}")
         return 0 if report.get("ok") else 2
 
     # Dry-run is deliberately read-only: it never creates a DB directory, scans the
     # Spotify API, writes snapshots, initializes schemas, or changes queue state.
     if args.dry_run:
-        db_path = cfg.db_dir / "playlist.db" if cfg.db_dir else None
+        db_path = cfg.db_dir / "vachika.db" if cfg.db_dir else None
         if not db_path or not db_path.is_file():
-            print("DRY RUN (read-only): no frozen playlist database exists; no network calls or writes were made.")
+            legacy = [name for name in ("playlist.db", "songs.db", "reels.db")
+                      if cfg.db_dir and (cfg.db_dir / name).is_file()]
+            if legacy:
+                print("DRY RUN (read-only): legacy database files detected: " + ", ".join(legacy))
+                print("No old store was read or changed. Run `python main.py --check-db` to migrate them into db/vachika.db.")
+            else:
+                print("DRY RUN (read-only): no frozen playlist database exists; no network calls or writes were made.")
             print(f"Configured playlist ID: {str(cfg.get('playlist.spotify_playlist_id') or '(not set)')}")
             return
         try:
@@ -279,19 +353,53 @@ def main():
     if args.doctor:
         raise SystemExit(0 if run_doctor(cfg) else 2)
     if args.backup_db:
+        # Backups are always of the one authoritative DB. If this is an older
+        # installation, migration/archive happens before the backup operation.
+        pdb, sdb, rdb, migration = initialize_unified_database(cfg)
+        sync_songs_json(cfg, pdb, sdb, rdb)
+        if migration.get("imported"):
+            print("Migrated legacy stores before backup:", ", ".join(migration["imported"]))
         print(f"Backup: {backup_databases(cfg.root, Path(args.backup_db), cfg.db_dir)}")
-        return
+        return 0
     if args.restore_db:
+        # Restore converts historical multi-database backups to vachika.db. Reinitialize
+        # any current schema additions and rebuild the derived catalog from restored rows.
         restore_databases(cfg.root, Path(args.restore_db), cfg.db_dir)
-        print("Database restore completed and verified.")
-        return
+        pdb, sdb, rdb, migration = initialize_unified_database(cfg)
+        sync_songs_json(cfg, pdb, sdb, rdb)
+        remaining = [name for name in ("playlist.db", "songs.db", "reels.db") if (cfg.db_dir / name).exists()]
+        if remaining:
+            raise SystemExit("DB_RESTORE_FAILED: non-unified active database files remain: " + ", ".join(remaining))
+        print("Database restored to db/vachika.db; db/songs.json regenerated and integrity verified.")
+        return 0
     if args.check_db:
-        print("Database integrity verification only (no schema migration is performed).")
-        print(json.dumps(migrate_databases(cfg.root, cfg.db_dir), indent=2))
-        return
+        # Unlike the former implementation, this command performs the pending data
+        # migration, rather than merely checking the integrity of whichever files exist.
+        pdb, sdb, rdb, migration = initialize_unified_database(cfg)
+        sync_songs_json(cfg, pdb, sdb, rdb)
+        result = migrate_databases(cfg.root, cfg.db_dir)
+        remaining = [name for name in ("playlist.db", "songs.db", "reels.db") if (cfg.db_dir / name).exists()]
+        if remaining:
+            raise SystemExit("DB_MIGRATION_FAILED: old active stores remain: " + ", ".join(remaining))
+        result["active_database_count"] = 1
+        catalog_path = (cfg.db_dir / "songs.json").resolve()
+        try:
+            result["catalog"] = catalog_path.relative_to(cfg.root.resolve()).as_posix()
+        except ValueError:
+            # A custom db_dir may legitimately live outside the project root. Report
+            # the absolute path rather than failing after migration already succeeded.
+            result["catalog"] = str(catalog_path)
+        result["migrated_legacy_stores"] = migration.get("imported", [])
+        print(json.dumps(result, indent=2))
+        return 0 if result.get("vachika", "").lower() == "ok" else 2
 
     cfg.db_dir.mkdir(parents=True, exist_ok=True)
-    pdb = PlaylistDB(cfg.db_dir / "playlist.db")
+    pdb, sdb, rdb, db_migration = initialize_unified_database(cfg)
+    # songs.json is a deterministic export of the authoritative DB; regenerate it
+    # after initialization/migration so a restore or upgrade cannot leave it stale.
+    sync_songs_json(cfg, pdb, sdb, rdb)
+    if db_migration.get("imported"):
+        print("Migrated legacy databases into db/vachika.db:", ", ".join(db_migration["imported"]), flush=True)
     playlist_id = str(cfg.get("playlist.spotify_playlist_id") or "").strip()
     existing_playlist = pdb.get_playlist(playlist_id) if playlist_id else None
 
@@ -300,15 +408,11 @@ def main():
         if not existing_playlist:
             print(f"Playlist {playlist_id} is not ingested.")
             return
-        sdb = SongsDB(cfg.db_dir / "songs.db")
-        rdb = ReelsDB(cfg.db_dir / "reels.db")
         print_status(cfg, pdb, sdb, rdb, playlist_id); return
 
     if args.reconcile or args.review or args.force_rebuild or args.reset_skipped:
         if not existing_playlist:
             raise SystemExit(f"Playlist {playlist_id} is not ingested; this administrative command requires an existing frozen snapshot.")
-        sdb = SongsDB(cfg.db_dir / "songs.db")
-        rdb = ReelsDB(cfg.db_dir / "reels.db")
         if args.reconcile:
             print("Recovered:", Recovery(cfg, pdb, sdb, rdb, logger(cfg)).reconcile(playlist_id)); return
         if args.review:
@@ -319,26 +423,34 @@ def main():
             ok = reset_skipped(cfg, pdb, sdb, _serial_arg(args.reset_skipped)); print("Skipped song reset." if ok else "Song not found."); return 0 if ok else 2
 
     if not playlist_id or playlist_id == "YOUR_SPOTIFY_PLAYLIST_ID":
-        raise SystemExit("Set playlist.spotify_playlist_id in config.json before normal processing. Use --prepare-models to cache ML models first, --doctor to inspect dependencies, or --dry-run for a read-only check.")
+        raise SystemExit("Set playlist.spotify_playlist_id in config.json before normal processing. Use --download-models to cache ML models first, --doctor to inspect dependencies, or --dry-run for a read-only check.")
 
-    # FIRST RUN for a new Spotify playlist is snapshot-only. Downstream DBs and
-    # expensive pipeline modules are deliberately not initialized until the
-    # snapshot transaction is committed.
     log = logger(cfg)
-    snapshot = playlist_snapshot(cfg, pdb, log)
-    if snapshot in {"new", "done"}:
-        if snapshot == "new":
-            print("FIRST SPOTIFY PLAYLIST SNAPSHOT COMPLETE", flush=True)
-            print("No song was processed on the first run.", flush=True)
-            print("Run python main.py again to process songs one at a time in exact Spotify playlist order.", flush=True)
-        return
-    if args.ingest_only:
-        print("INGEST-ONLY COMPLETE: an existing frozen Spotify snapshot was verified; no songs were processed.", flush=True)
-        return
+    if args.load_playlist:
+        result = playlist_snapshot(cfg, pdb, log)
+        sync_songs_json(cfg, pdb, sdb, rdb)
+        if result == "new":
+            print("PLAYLIST LOAD COMPLETE. No songs were processed. Run python main.py --process-playlist when ready.", flush=True)
+        else:
+            print("PLAYLIST LOAD COMPLETE. Existing frozen snapshot retained; no refetch was performed.", flush=True)
+        return 0
 
-    # Downstream DBs are initialized only for an already-frozen playlist.
-    sdb = SongsDB(cfg.db_dir / "songs.db")
-    rdb = ReelsDB(cfg.db_dir / "reels.db")
+    if args.process_playlist:
+        if not existing_playlist or existing_playlist.get("ingestion_status") != "done" or int(existing_playlist.get("entry_count") or 0) == 0:
+            raise SystemExit("No committed Spotify playlist snapshot exists. Run python main.py --load-playlist first.")
+        snapshot = "existing"
+    else:
+        # Backward-compatible behavior: a normal run snapshots a new playlist and exits;
+        # a committed snapshot can proceed to song processing on later runs.
+        snapshot = playlist_snapshot(cfg, pdb, log)
+        if snapshot in {"new", "done"}:
+            sync_songs_json(cfg, pdb, sdb, rdb)
+            if snapshot == "new":
+                print("FIRST SPOTIFY PLAYLIST SNAPSHOT COMPLETE", flush=True)
+                print("No song was processed.", flush=True)
+                print("Run python main.py --process-playlist to process the frozen playlist.", flush=True)
+            return 0
+    sync_songs_json(cfg, pdb, sdb, rdb)
     from src.orchestration.pipeline import Pipeline
     if args.retry_errors:
         changed = pdb.retry_errors(playlist_id); print(f"Retryable entries reset: {changed}")
@@ -352,8 +464,9 @@ def main():
         if not entries: raise SystemExit(f"Song serial {serial} is not actionable in the current frozen Spotify playlist.")
     for e in entries:
         print(f"\nPROCESSING playlist-position={e['playlist_position']} | {e['title']} | Spotify={e['spotify_track_id']}", flush=True)
-        print("Spotify metadata + artwork → YT Music audio search → lyrics → Demucs → alignment → 8D → hook → Reel", flush=True)
+        print("Spotify metadata → LRCLIB lyrics → YT Music reference audio → YouTube video search → MMS LRCLIB offset → Demucs → word-level LRC → 8D → hook → Reel", flush=True)
         status = pipeline.process_entry(e)
+        sync_songs_json(cfg, pdb, sdb, rdb)
         print("RESULT:", status, flush=True)
         if args.single: break
     if args.single: return

@@ -1,12 +1,14 @@
-# Complete project audit — Vachika Official 1.4.30-src-organized
+> **Historical audit note (pre-1.5.0):** This report describes the source baseline before the unified-database and MMS-only offset changes. Any recommendation here that refers to `playlist.db`, `songs.db`, `reels.db`, per-workspace `phase2.sqlite`, or the former energy-envelope offset is historical and has been superseded by `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, and the 1.5.0 changelog. Use `docs/BUILD_INFO.md` for current verification results.
+
+# Historical project audit — Vachika Official 1.4.30-src-organized
 
 **Status:** current post-refactor audit. The file `HISTORICAL_PRE_REPAIR_AUDIT.md` is retained as a historical record of the original archive and its findings; its old file paths and pre-repair counts are not current instructions. This document records the disposition of those findings after the repairs and the package migration.
 
 ## Executive result
 
-The source tree has been reorganized into canonical domain packages. Active runtime code, tests and the authentication helper now import those canonical paths; the previous root-level forwarding modules have been removed. The two active engines remain intact in `src/phase2core/` and `src/rendercore/`. No project source was silently discarded as part of the package move beyond paths that the historical audit identified as inactive and that were removed from the supplied repaired baseline.
+This document records the pre-1.5.0 audit state. Its source-layout observations may remain useful, but its findings, counts, database names and offset behavior are not the authority for the current package. For the implementation shipped in 1.5.0, consult `docs/ARCHITECTURE.md`, `docs/UPGRADING_1_5_0.md`, `docs/CHANGELOG.md`, and `docs/BUILD_INFO.md`.
 
-The post-refactor suite passes **110 tests**. Python compilation, fresh-archive extraction, configuration parsing/equality, import resolution, CLI help and read-only dry-run behavior have been checked. Measured results and file hashes are recorded in `BUILD_MANIFEST.json`.
+The historical pre-1.5.0 suite passed **110 tests**. Python compilation, fresh-archive extraction, configuration parsing/equality, import resolution, CLI help and read-only dry-run behavior have been checked. Measured results and file hashes are recorded in `BUILD_MANIFEST.json`.
 
 A passing unit suite does not prove the quality of a live song-to-Reel job. Real service credentials, model downloads/inference, media sources, FFmpeg and the target machine's GPU/NVENC setup are not available to this packaging check. Likewise, music-alignment thresholds and 8D audio quality need validation with real annotated/reference songs and listening tests; no claim is made that these settings are universally calibrated.
 

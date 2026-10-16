@@ -7,7 +7,9 @@ from src.storage.maintenance import backup_databases, restore_databases, integri
 from src.audio.demucs import DemucsRunner
 
 
-def _dbs(tmp_path): return PlaylistDB(tmp_path/'playlist.db'),SongsDB(tmp_path/'songs.db'),ReelsDB(tmp_path/'reels.db')
+def _dbs(tmp_path):
+    path = tmp_path / 'vachika.db'
+    return PlaylistDB(path), SongsDB(path), ReelsDB(path)
 
 
 def test_every_spotify_playlist_position_is_persisted(tmp_path):
@@ -54,26 +56,70 @@ def test_sqlite_stage_accepts_windows_path(tmp_path):
 
 def test_db_backup_restore(tmp_path):
     root=tmp_path/'project';(root/'db').mkdir(parents=True)
-    PlaylistDB(root/'db/playlist.db');SongsDB(root/'db/songs.db');ReelsDB(root/'db/reels.db')
+    PlaylistDB(root/'db/vachika.db');SongsDB(root/'db/vachika.db');ReelsDB(root/'db/vachika.db')
     dest=backup_databases(root,tmp_path/'backups')
-    assert all(integrity_check(dest/f'{n}.db')=='ok' for n in ('playlist','songs','reels'))
-    marker=root/'db/songs.db';marker.write_bytes(b'corrupt')
+    assert integrity_check(dest/'vachika.db') == 'ok'
+    marker=root/'db/vachika.db';marker.write_bytes(b'corrupt')
     restore_databases(root,dest)
     assert integrity_check(marker)=='ok'
+    assert not any((root/'db'/f'{name}.db').exists() for name in ('playlist','songs','reels'))
 
 
-def test_stale_playlist_db_is_quarantined(tmp_path):
-    import sqlite3
-    path=tmp_path/'playlist.db'
-    with sqlite3.connect(path) as c:
-        c.execute('CREATE TABLE schema_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
-        c.execute("INSERT INTO schema_meta VALUES('schema_name','old_schema')")
-        c.execute("INSERT INTO schema_meta VALUES('schema_version','1.0.0')")
-        c.commit()
-    PlaylistDB(path)
-    assert any(path.parent.glob('playlist.legacy*.db'))
-    with sqlite3.connect(path) as c:
-        assert c.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0]=='4.0.0'
+def test_restore_legacy_three_database_backup_installs_only_vachika_db(tmp_path):
+    """Legacy multi-file backups remain importable, but never become active stores."""
+    backup = tmp_path / "legacy-backup"
+    backup.mkdir()
+    schemas = {
+        "playlist.db": Path("database/playlist_schema.sql"),
+        "songs.db": Path("database/songs_schema.sql"),
+        "reels.db": Path("database/reels_schema.sql"),
+    }
+    for filename, schema_path in schemas.items():
+        with sqlite3.connect(backup / filename) as conn:
+            conn.executescript(schema_path.read_text(encoding="utf-8"))
+    with sqlite3.connect(backup / "playlist.db") as conn:
+        conn.execute(
+            "INSERT INTO playlists(playlist_id,display_name,playlist_url,snapshot_id,snapshot_scanned_once,ingestion_status,entry_count) "
+            "VALUES(?,?,?,?,?,?,?)",
+            ("P-RESTORE", "Legacy playlist", "https://open.spotify.com/playlist/P-RESTORE", "snap", 1, "done", 0),
+        )
+
+    root = tmp_path / "project"
+    db_dir = root / "db"
+    restore_databases(root, backup, db_dir)
+
+    unified = db_dir / "vachika.db"
+    assert unified.is_file() and integrity_check(unified) == "ok"
+    assert not any((db_dir / name).exists() for name in ("playlist.db", "songs.db", "reels.db"))
+    with sqlite3.connect(unified) as conn:
+        row = conn.execute("SELECT display_name FROM playlists WHERE playlist_id='P-RESTORE'").fetchone()
+        assert row == ("Legacy playlist",)
+        assert conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='reels'").fetchone()[0] == 1
+
+
+def test_repositories_refuse_to_create_domain_specific_databases(tmp_path):
+    import pytest
+    from src.storage.playlist_db import PlaylistDB
+    path = tmp_path / 'playlist.db'
+    with pytest.raises(ValueError, match='one operational database'):
+        PlaylistDB(path)
+    assert not path.exists()
+    unified = tmp_path / 'vachika.db'
+    PlaylistDB(unified)
+    assert unified.is_file()
+    assert not (tmp_path / 'playlist.db').exists()
+
+
+def test_all_domain_repositories_reject_legacy_database_filenames(tmp_path):
+    import pytest
+    from src.storage.playlist_db import PlaylistDB
+    from src.storage.song_db import SongsDB
+    from src.storage.reel_db import ReelsDB
+    for repo, filename in ((PlaylistDB, 'playlist.db'), (SongsDB, 'songs.db'), (ReelsDB, 'reels.db')):
+        legacy_path = tmp_path / filename
+        with pytest.raises(ValueError, match='one operational database'):
+            repo(legacy_path)
+        assert not legacy_path.exists(), f'{repo.__name__} created an obsolete database at {legacy_path}'
 
 
 def test_audio_dependency_boundary_is_search_then_ytdlp():
@@ -117,7 +163,8 @@ def test_demucs_cpu_fallback_is_default_even_with_legacy_cuda_request(monkeypatc
 
 def test_runtime_config_prefers_cuda_with_cpu_fallback():
     import json
-    cfg=json.loads(Path('config.json').read_text(encoding='utf-8'))
+    config_path = Path('config.json') if Path('config.json').is_file() else Path('config.json.example')
+    cfg=json.loads(config_path.read_text(encoding='utf-8'))
     assert cfg['runtime']['device']=='cuda'
     assert cfg['runtime']['fallback_device']=='cpu'
     assert cfg['runtime']['require_cuda'] is False
@@ -128,7 +175,7 @@ def test_demucs_db_runs_receive_created_at():
     from pathlib import Path
     import tempfile
     root = Path(tempfile.mkdtemp())
-    db = SongsDB(root / 'songs.db', Path('database/songs_schema.sql'))
+    db = SongsDB(root / 'vachika.db', Path('database/songs_schema.sql'))
     key = '1_created_at_test'
     db.ensure_song({'song_key': key, 'title': 'x', 'artist': 'a', 'album': 'b', 'duration_ms': 1000})
     rid = db.upsert_demucs(key, {'model_name':'htdemucs','device':'cpu','input_sha256':'x','duration_ms':1000,'status':'completed'})
@@ -147,9 +194,10 @@ def test_core_final_package_is_promoted_before_hook():
 def test_unified_config_exposes_canonical_config_path():
     from src.config import Config
     import json
-    cfg_data=json.loads(Path('config.json').read_text(encoding='utf-8'))
-    cfg=Config(Path('.').resolve(), cfg_data, 'hash')
-    assert cfg.config_path == Path('config.json').resolve()
+    config_path = Path('config.json') if Path('config.json').is_file() else Path('config.json.example')
+    cfg_data=json.loads(config_path.read_text(encoding='utf-8'))
+    cfg=Config(Path('.').resolve(), cfg_data, 'hash', config_path)
+    assert cfg.config_path == config_path.resolve()
 
 def test_alignment_adapter_is_self_contained_and_has_no_archive_config_dependency():
     from pathlib import Path
@@ -168,7 +216,8 @@ def test_phase2_database_constructor_matches_alignment_adapter():
 
     alignment = Path("src/alignment/adapter.py").read_text(encoding="utf-8")
     assert "Database(p2.path('paths.db_dir')/'phase2.sqlite',pipeline_version=" not in alignment
-    assert "Database(p2.path('paths.db_dir')/'phase2.sqlite')" in alignment
+    assert "Database(p2.path('paths.db_dir')/'vachika.db', namespace='phase2_')" in alignment
+    assert "p2_basename = re.sub" in alignment
 
 
 def test_phase2_pipeline_constructor_matches_alignment_adapter():
@@ -236,7 +285,7 @@ def test_model_cache_environment_is_project_owned(tmp_path, monkeypatch):
 
 def test_songs_db_persists_alignment_lyric_lines_and_words_atomically(tmp_path):
     from src.storage.song_db import SongsDB
-    db = SongsDB(tmp_path / "songs.db", Path("database/songs_schema.sql"))
+    db = SongsDB(tmp_path / "vachika.db", Path("database/songs_schema.sql"))
     key = "1_TEST"
     db.ensure_song({"song_key": key, "title": "Test", "basename": "Test", "duration_ms": 1000})
     alignment_id = db.upsert_alignment(key, {
@@ -398,7 +447,8 @@ def test_pipeline_final_song_paths_do_not_reference_undefined_targets():
 def test_hook_skip_config_and_persistent_queue_contract():
     import json
     from pathlib import Path
-    cfg = json.loads(Path('config.json').read_text(encoding='utf-8'))
+    config_path = Path('config.json') if Path('config.json').is_file() else Path('config.json.example')
+    cfg = json.loads(config_path.read_text(encoding='utf-8'))
     assert isinstance(cfg['hook']['skip'], bool)
     assert cfg['hook']['queue_file'] == 'songs/final/hook_queue.json'
     text = Path('src/orchestration/pipeline.py').read_text(encoding='utf-8')
@@ -418,6 +468,8 @@ def test_hook_queue_resume_uses_persisted_times_without_media_reselection():
     section = text[text.index('def _finalize_from_hook_queue'):text.index('def process_entry')]
     assert 'select_video(' not in section
     assert 'youtube_video_url' in section and 'youtube_offset_ms' in section
+    assert 'youtube_offset_method' in section or '_hook_queue_has_current_offset' in text
+    assert 'HOOK_QUEUE_OFFSET_METHOD_MISMATCH' in section
 
 
 def test_hook_queue_stale_source_package_recovers_into_normal_pipeline():
@@ -427,6 +479,8 @@ def test_hook_queue_stale_source_package_recovers_into_normal_pipeline():
     assert "def _mark_hook_queue_stale" in text
     assert "has a stale hook queue entry" in text
     assert "SOURCE_PACKAGE_MISSING" in text
+    assert "OFFSET_METHOD_CHANGED_OR_MANIFEST_MISMATCH" in text
+    assert "HOOK_QUEUE_OFFSET_METHOD_MISMATCH" in text
     assert "queued = None" in text
 
 

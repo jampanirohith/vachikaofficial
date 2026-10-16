@@ -1,62 +1,65 @@
 {
   "project": "Vachika Official",
-  "package_version": "1.4.30-src-organized",
-  "generated_at_utc": "2026-10-14T09:34:25+00:00",
-  "source_archive": "vachikaofficial-cleaned.zip (reorganized and revalidated)",
+  "package_version": "1.5.1-unified-db-mms-offset-v3",
+  "generated_at_utc": "2026-10-15T04:33:51+00:00",
+  "source_archive": "vachikaofficial-cleaned-1.5.1.zip",
   "package_root": "vachikaofficial-main/",
+  "storage_contract": {
+    "active_sqlite_database": "db/vachika.db",
+    "derived_song_catalog": "db/songs.json",
+    "per_song_manifest": "songs/final/<song>.json",
+    "old_database_names_in_release": "migration/backup conversion/test compatibility only; never active runtime destinations",
+    "legacy_schema_sql": "DDL assets used to create domain tables inside vachika.db; these are not database files"
+  },
   "inventory": {
-    "total_project_files_including_manifest": 120,
-    "checksummed_files_excluding_this_manifest": 119,
-    "python_files_total": 88,
-    "python_files_under_src": 73,
-    "source_lines_under_src": 10607,
+    "total_project_files_including_manifest": 124,
+    "checksummed_files_excluding_this_manifest": 123,
+    "python_files_total": 91,
+    "python_files_under_src": 75,
+    "source_lines_under_src": 12260,
     "file_extensions": {
       ".example": 2,
       ".ini": 1,
-      ".json": 2,
+      ".json": 3,
       ".md": 14,
       ".ps1": 3,
-      ".py": 88,
+      ".py": 91,
       ".sql": 4,
       ".ttf": 2,
-      ".txt": 2,
+      ".txt": 3,
       "[no extension]": 1
     },
-    "inventory_sha256_excluding_manifest": "f4b33fca7952b7d42fd16d6f5af8287b196b754f624ab14267d3fd716c86956d",
-    "manifest_sha256_note": "The manifest cannot contain its own SHA-256 without a recursive definition; all other packaged files are listed with byte size and SHA-256."
+    "inventory_sha256_excluding_manifest": "336362efe2350422ebef8ba402a93750b0caae56c78ee1665fe7f4da7ecf0389",
+    "inventory_sha256_note": "SHA-256 of canonical UTF-8 JSON for the sorted checksummed_files array (keys sorted, separators comma/colon without spaces); the manifest cannot hash itself recursively.",
+    "manifest_sha256_note": "The manifest cannot contain its own SHA-256 without a recursive definition; every other release file is listed with byte size and SHA-256."
   },
   "source_organization": {
-    "src_root_files": [
-      "src/__init__.py",
-      "src/config.py",
-      "src/README.md"
-    ],
     "domain_packages": {
-      "src/providers": "Spotify, YT Music and LRCLIB interfaces",
-      "src/audio": "source audio, Demucs, 8D and MP3 metadata",
-      "src/video": "visual selection, synchronization, source video and Reel pipeline",
-      "src/storage": "SQLite repositories, maintenance and final JSON manifest",
-      "src/orchestration": "stage workflow, hooks and recovery",
-      "src/common": "shared hashing, paths, timeouts, GPU and model-cache utilities",
-      "src/diagnostics": "environment diagnostics",
-      "src/alignment": "application adapter to word alignment",
-      "src/phase2core": "active Telugu word-level alignment engine (preserved)",
-      "src/rendercore": "active FFmpeg/ASS audio-video renderer (preserved)",
-      "src/sql": "Phase 2 database schema"
+      "src/providers": "Spotify, YT Music, LRCLIB, and source discovery/acquisition interfaces",
+      "src/audio": "reference-source derivatives, HTDemucs separation, whole-song 8D, MP3 metadata",
+      "src/video": "YouTube visual/audio selection, MMS lyric-anchor offset, Reel assembly pipeline",
+      "src/storage": "single operational SQLite DB, migrations/backups, generated songs.json catalog, per-song manifest",
+      "src/orchestration": "Spotify-first staged pipeline, per-song progression, hook/recovery lifecycle",
+      "src/common": "configuration-shared hashing, paths, timeouts, GPU and model-cache helpers",
+      "src/diagnostics": "runtime dependency and device checks",
+      "src/alignment": "adapter to the full Telugu word-alignment engine",
+      "src/phase2core": "active Telugu MMS/CTC word alignment with namespaced DB tables in vachika.db",
+      "src/rendercore": "active FFmpeg/ASS audio-video rendering and assembly primitives",
+      "src/sql": "logical Phase-2 schema DDL initialized inside the unified database"
     },
-    "legacy_root_forwarders": "removed after internal runtime, script and test imports were migrated to canonical package paths"
+    "root_cli": "main.py"
   },
   "pipeline_contract": [
-    "Spotify playlist snapshot is the order authority; Spotify supplies catalog metadata, artwork and ISRC only.",
-    "YT Music search selects the recording; yt-dlp downloads only the exact selected music.youtube.com URL.",
-    "LRCLIB synchronized lyrics are screened for Telugu script before expensive downstream alignment.",
-    "Source audio derivatives and selected-video reference audio use content and recipe provenance manifests.",
-    "Demucs retries/device fallbacks use isolated output locations; only validated stems from a successful attempt are promoted.",
-    "The active Telugu word-alignment engine is src/phase2core; repaired word timing is validated before serialization.",
-    "Whole-song 8D processing precedes full-song visual offset confidence checks and absolute-timeline Reel trimming."
+    "Spotify Web API is the playlist/catalog authority and provides metadata/artwork/ISRC; no Spotify audio is downloaded.",
+    "LRCLIB synced lyrics are fetched immediately after Spotify metadata and are the sole lyric transcript allowed for offset anchors; enforce the Telugu-script gate.",
+    "Select and download the YT Music reference recording, select one visual YouTube video, and download audio from that exact selected video URL.",
+    "MMS/CTC searches the opening LRCLIB lyric phrase independently in the YT Music reference audio and selected YouTube-video audio using overlapping windows with original-timeline timestamps.",
+    "Calculate offset only from paired word-level timestamp differences using a robust median and quality/coverage/MAD rejection. No energy-envelope fallback is active.",
+    "Persist both anchors, method version, offset and matched-word evidence into workspace state, vachika.db and the progressive per-song JSON before full media processing.",
+    "Continue with source-provenance validation, isolated HTDemucs attempts, complete Telugu word-level LRC, whole-song 8D, hook selection, absolute-timeline Reel render and artifact validation.",
+    "Use db/vachika.db as the sole active SQLite DB; db/songs.json is generated from the DB, and songs/final/<song>.json contains that song’s complete progressive processing record."
   ],
   "validation": {
-    "python_version": "3.13.5",
     "python_compileall": {
       "status": "passed",
       "command": "python -m compileall -q main.py src tests scripts"
@@ -64,15 +67,17 @@
     "pytest": {
       "status": "passed",
       "command": "pytest -q",
-      "passed": 110,
+      "passed": 122,
       "failed": 0,
       "skipped": 0
     },
     "static_import_targets": {
       "status": "passed",
-      "checked": 234,
+      "checked": 263,
       "unresolved": 0,
-      "scope": "main.py, src/, tests/, scripts/"
+      "syntax_errors": [],
+      "details": [],
+      "scope": "all packaged Python files; AST-resolved src.* modules/packages"
     },
     "cli_help": {
       "status": "passed",
@@ -81,38 +86,54 @@
     },
     "dry_run": {
       "status": "passed",
+      "command": "python main.py --dry-run with no config.json and no database",
       "network_calls": false,
       "database_initialization": false,
       "directory_creation": false,
-      "contract": "read-only when configured playlist DB is absent"
+      "contract": "read-only when configured playlist DB is absent; config.json.example fallback confirmed"
     },
     "configuration": {
       "status": "passed",
       "files": [
-        "config.json",
-        "config.json.example"
+        "config.json.example",
+        "cookies.txt.example"
       ],
-      "both_parse_as_json": true,
-      "files_identical": true
+      "config_example_parse_as_json": true,
+      "duplicate_json_keys": 0,
+      "config_json_included": false,
+      "private_auth_or_cookie_files_included": false,
+      "canonical_version_fields_match": true
     },
     "zip_integrity": {
       "status": "passed",
-      "command": "ZipFile.testzip() on final archive",
+      "command": "ZipFile.testzip() on the final archive",
       "bad_member": null
     },
     "manifest_hash_verification": {
       "status": "passed",
-      "verified_checksums": 119,
-      "mismatches": 0
+      "verified_checksums": 123,
+      "mismatches": 0,
+      "algorithm": "SHA-256 and byte-size verification for every checksummed_files entry after extraction"
     },
     "fresh_archive_tests": {
       "status": "passed",
-      "pytest_passed": 110,
-      "compileall": "passed"
+      "pytest_passed": 122,
+      "pytest_failed": 0,
+      "compileall": "passed",
+      "help": "passed",
+      "dry_run_without_runtime_config": "passed",
+      "dry_run_created_config_or_database": false
+    },
+    "database_release_policy": {
+      "status": "passed",
+      "actual_db_files_included": 0,
+      "actual_legacy_database_files_included": 0,
+      "legacy_db_names_are_only_migration_logic": true,
+      "schema_sql_files_are_ddl_not_databases": true
     },
     "end_to_end_media_pipeline": {
       "status": "not_run",
-      "reason": "Requires user credentials, live external services, downloaded model weights, representative media and target GPU/NVENC setup."
+      "reason": "Requires user credentials, live external services, downloaded model weights, representative media, and target GPU/NVENC setup. MMS anchor-selection thresholds need calibration on real annotated songs/videos."
     },
     "ruff": {
       "status": "not_run",
@@ -123,37 +144,30 @@
       "reason": "Not installed in the build environment; no successful run is claimed."
     }
   },
-  "retired_obsolete_paths": [
-    "src/artwork.py",
-    "src/downloader.py",
-    "src/errors.py",
-    "src/playlist_ingest.py",
-    "src/spotify_isrc.py",
-    "src/spotify_overlay.py",
-    "src/phase2core/doctor.py",
-    "src/phase2core/recovery.py",
-    "tests/test_ytm_playlist_ingestion.py",
-    "scripts/setup_ytmusic_auth.py",
-    "scripts/setup_ytmusic_auth.ps1",
-    "docs/YTMUSIC_AUTH_WINDOWS.md",
-    "docs/PROJECT_PLAN_ORIGINAL.md",
-    "docs/initial_complete_plan.md",
-    "ideas.txt"
-  ],
   "runtime_data_excluded": [
-    "Spotify token and private credentials",
-    "browser cookies",
-    "SQLite databases",
-    "downloaded model weights",
-    "generated song/8D/Reel artifacts",
-    "live hook queue",
-    "Python bytecode and test caches"
+    "config.json and private configuration overrides",
+    "Spotify OAuth tokens, auth files, client credentials and real browser/yt-dlp cookies",
+    "active/legacy SQLite databases, WAL/SHM files and database backups",
+    "populated user catalog and migration manifests (generated per installation; only the empty db/songs.json scaffold ships)",
+    "downloaded model weights and model-preparation manifests",
+    "temporary workspaces, caches, logs, generated songs/LRC/8D audio and rendered Reels",
+    "live hook queues, Python bytecode, test caches and virtual environments"
   ],
   "checksummed_files": [
     {
       "path": ".gitignore",
-      "size_bytes": 502,
-      "sha256": "6faa3342f9c9f605a3e2c143a7ba0d85bfd417cca124c40a86639f0f8f544622"
+      "size_bytes": 532,
+      "sha256": "f7ea5092aa9d84083048f1e1595f93a15cd3e269ef94c4f498194120871be769"
+    },
+    {
+      "path": "PROJECT_PLAN.md",
+      "size_bytes": 4393,
+      "sha256": "fadf74b7c0e5c1db6d1bdeaa1a108fae36893561cef30b158efe1686c8b64695"
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 8563,
+      "sha256": "3dfe92bded025d83128e2e16452743482ac4d2a0dbe4989dfc07147a39806c07"
     },
     {
       "path": "assets/fonts/BalooTammudu2-ExtraBold.ttf",
@@ -166,14 +180,9 @@
       "sha256": "06cd3eec9f6b727415bea41d09cbdd290e2504590775d457f4acf83a2078c415"
     },
     {
-      "path": "config.json",
-      "size_bytes": 5273,
-      "sha256": "2a185d5b13ab767dd06f84ef5f09863ba514277ed4942bd96f24d2e8736fb9f8"
-    },
-    {
       "path": "config.json.example",
-      "size_bytes": 5273,
-      "sha256": "2a185d5b13ab767dd06f84ef5f09863ba514277ed4942bd96f24d2e8736fb9f8"
+      "size_bytes": 5320,
+      "sha256": "6fa5de67024da3648b22ce132327dd14def3e901ec11b9d4bb1c7c68971a0abe"
     },
     {
       "path": "cookies.txt.example",
@@ -192,33 +201,38 @@
     },
     {
       "path": "database/songs_schema.sql",
-      "size_bytes": 9787,
-      "sha256": "6ad10ecb2bb907365b4ca2e83dc3b8fafec42e96ea6b5cda6c14c5bbd5c1e988"
+      "size_bytes": 9893,
+      "sha256": "a3cc81b385e8d6bc01df3f13c00326ff9d39c3d4dbe206c692c593005a0fdd73"
+    },
+    {
+      "path": "db/README.md",
+      "size_bytes": 615,
+      "sha256": "adb822a0ada69a5bbecfd5fb471643ce1fd1c035d59022043dd2a8a4959210c4"
+    },
+    {
+      "path": "db/songs.json",
+      "size_bytes": 208,
+      "sha256": "f247c40234f21b886ddea0af27c9976549f78cb5ccc23a07f9fcbf712046ad12"
     },
     {
       "path": "docs/ARCHITECTURE.md",
-      "size_bytes": 4932,
-      "sha256": "30226dfaa723da904152e7209b07ee6cf93807b1c3f40089181fff43d04b0dbc"
+      "size_bytes": 6505,
+      "sha256": "50ff093ec2daca58476596423060c43b33f1a06ce84fd36c1c2d63f80767cb55"
     },
     {
       "path": "docs/BUILD_INFO.md",
-      "size_bytes": 2255,
-      "sha256": "424e6c09a4223dd01815e8350defda3bac2904ba40264c77a7ad3c132faff26a"
+      "size_bytes": 3590,
+      "sha256": "0b702ec66577be466b22910a8f2b26d1a56fe06dac057b561796e6f605b20736"
     },
     {
       "path": "docs/CHANGELOG.md",
-      "size_bytes": 17629,
-      "sha256": "ebdb1cd0ad4f02c6015a8e042dc6815eff07c6ecf73a650126e34d388d3fb25b"
+      "size_bytes": 20694,
+      "sha256": "0f26fbeeeb7c98f58ad1379811a194db922699c3329c86fc38fb4cf01a0c8c47"
     },
     {
       "path": "docs/CONFIGURATION.md",
-      "size_bytes": 3578,
-      "sha256": "8be11b0dd9e83f250d7ed19ec057e94525e2fdbf0c7f8678e3b8f0624529b6ef"
-    },
-    {
-      "path": "docs/FULL_PROJECT_AUDIT.md",
-      "size_bytes": 11188,
-      "sha256": "1e57e1ff11e96bd75bbb395482bbfcbfac038e23a1c50ff3dd4d6818e66fe6ab"
+      "size_bytes": 4590,
+      "sha256": "11af20ed5b1074113a6a1739ad6f1d9aa1b947e527d67e1c6cfdc4c3c90cca3e"
     },
     {
       "path": "docs/GPU_CUDA_AUDIT.md",
@@ -226,29 +240,34 @@
       "sha256": "73503127a194e8fd8743fb67869b922f18fb10fbc1bca2740051260e61ad2877"
     },
     {
-      "path": "docs/HISTORICAL_PRE_REPAIR_AUDIT.md",
-      "size_bytes": 69428,
-      "sha256": "fec452d6a30e9759f67aa4b8c4e93e391395748c0e9e6355bfa7492993adbcc1"
-    },
-    {
       "path": "docs/PROJECT_PLAN.md",
-      "size_bytes": 3167,
-      "sha256": "f4a96efe415b48ac2435e56209ff4ce7ef45ccd1a35faf7c82f4cbcbd4e2dd27"
+      "size_bytes": 684,
+      "sha256": "4337584e8b94a0ec40a71c2080144e3892df4b2dee3cfb2242c8b2e5302ddfb2"
     },
     {
       "path": "docs/ROADMAP.md",
-      "size_bytes": 2077,
-      "sha256": "0c6e4665e1c84c82c58fec97c3579a1501d616a5a7df7cbce7c185873e642bc1"
+      "size_bytes": 2297,
+      "sha256": "8dac82c232aa071a38d8b2a7a54599fc642b9cf6916e9786993ca95c5c29d160"
     },
     {
       "path": "docs/SOURCE_INPUTS.md",
-      "size_bytes": 986,
-      "sha256": "b8016c3f10bc09caf34b3c5da93eec6f29217a2e1e56117cf3eba3bdf71d01b5"
+      "size_bytes": 1321,
+      "sha256": "3ccebb51bfd675f60f906b113557b493dca1f23633a795ecbb797cf1a24f3594"
+    },
+    {
+      "path": "docs/UPGRADING_1_5_1.md",
+      "size_bytes": 3131,
+      "sha256": "4c2f7b5c8fe2b688b1e8eb60ab9d6c5501f542067b8635ec6a43ffba19b1384d"
+    },
+    {
+      "path": "ideas.txt",
+      "size_bytes": 635,
+      "sha256": "95af97c4df1f989e31707fc8b182ab8de2ccdb150016564f6669dc761dd2d81e"
     },
     {
       "path": "main.py",
-      "size_bytes": 20567,
-      "sha256": "ed559db94fd78ca3a0192938e90ba32f7ba91bd954488a5886eeb812697ebbb6"
+      "size_bytes": 27368,
+      "sha256": "c92b7e24788d4587e1fd8b4bbc6bb1f72ecf1a4b95d2a3a02641cb9557e99336"
     },
     {
       "path": "models/README.md",
@@ -256,19 +275,9 @@
       "sha256": "4571d733262979785e8c11d6254ef89013c0d967bcd5796bbe4a4420942782e6"
     },
     {
-      "path": "PROJECT_PLAN.md",
-      "size_bytes": 3167,
-      "sha256": "f4a96efe415b48ac2435e56209ff4ce7ef45ccd1a35faf7c82f4cbcbd4e2dd27"
-    },
-    {
       "path": "pytest.ini",
       "size_bytes": 42,
       "sha256": "6c6ccf864e8f2d2e0223ee8e39bfde660c12435aa37d81e2b14000a6bee15003"
-    },
-    {
-      "path": "README.md",
-      "size_bytes": 6821,
-      "sha256": "df24e03663b93f0fa86d843512bd504144dbdf2d902409214a67723c005d67f3"
     },
     {
       "path": "requirements-dev.txt",
@@ -306,6 +315,11 @@
       "sha256": "871196bb413cb20e4b7c7716469b49230bd985d7a57cde4acf88ef68abf576c7"
     },
     {
+      "path": "src/README.md",
+      "size_bytes": 4196,
+      "sha256": "7e37a9f063d353afa4d4e9c2f84a1351648b95ace6808a5f11e49d21ebea7cdb"
+    },
+    {
       "path": "src/__init__.py",
       "size_bytes": 28,
       "sha256": "67c2cacfbe706f8175d2c6a78b0fdf16fbde4de7155944fb5de2e7365eee2b21"
@@ -317,8 +331,8 @@
     },
     {
       "path": "src/alignment/adapter.py",
-      "size_bytes": 2513,
-      "sha256": "7258018c5ed76d5353b1408d5f0b5fe3aff5c06806584fa3cb9e9e75a192b9eb"
+      "size_bytes": 2768,
+      "sha256": "55d36d2a0126e32c9fa1f8d9c22202797ff71afb4cad0e10cb1157a7212d2782"
     },
     {
       "path": "src/audio/__init__.py",
@@ -327,18 +341,18 @@
     },
     {
       "path": "src/audio/demucs.py",
-      "size_bytes": 10251,
-      "sha256": "443defe5db30ae760071b3c226e954eb933d59359eee3bf0e54a2baa347885a5"
+      "size_bytes": 10235,
+      "sha256": "2d8293633978bde13e72a43c309d1a709cb5460173f413d93a2e2a918d397a26"
     },
     {
       "path": "src/audio/eightd.py",
-      "size_bytes": 5583,
-      "sha256": "f72e37bc41fc7ba791a7b4b7f4803bdc0fa2c3b9657d0183cdd9c94fdc7639a7"
+      "size_bytes": 5571,
+      "sha256": "cde2b4dc8adef76d661144de27154b883b856f0e7ccd6701290fe5f39e72609b"
     },
     {
       "path": "src/audio/mp3_metadata.py",
-      "size_bytes": 3286,
-      "sha256": "8a9eebc31fef845993c75b3b7ede05ffe1d6e75c170e800c77ec5f8bf488353f"
+      "size_bytes": 3236,
+      "sha256": "eebbf0969d765e83d6aeeb25b905d2567608204b2d0894c42e3888f967e63259"
     },
     {
       "path": "src/audio/source_audio.py",
@@ -357,8 +371,8 @@
     },
     {
       "path": "src/common/hashing.py",
-      "size_bytes": 380,
-      "sha256": "b944c2673b0eae8a0b16be7361556cb69df20fafa76208d09da1957b4ea1cc9a"
+      "size_bytes": 355,
+      "sha256": "ed7b25ced90330274b122e7babbfb6715caec657e2e56dbdb2b60ae87d3052aa"
     },
     {
       "path": "src/common/http_utils.py",
@@ -367,8 +381,8 @@
     },
     {
       "path": "src/common/metadata.py",
-      "size_bytes": 18872,
-      "sha256": "8de99534f9bdb4218917025dab17496a2e61741195b9183b81d62529d1fc410f"
+      "size_bytes": 18877,
+      "sha256": "af2602a00449d0aeded079fb2cc181a8e2b180d4504c175fdef3f38570712660"
     },
     {
       "path": "src/common/model_cache.py",
@@ -392,8 +406,8 @@
     },
     {
       "path": "src/config.py",
-      "size_bytes": 5617,
-      "sha256": "1d980ab1649381774a8b967f4f3245876f8db4554ab2c2b5af1f469c39c00eb4"
+      "size_bytes": 7440,
+      "sha256": "67027d07168eb6d493e4121de86dccf5697bfe984c42445f2ac781938dc5246a"
     },
     {
       "path": "src/diagnostics/__init__.py",
@@ -417,13 +431,13 @@
     },
     {
       "path": "src/orchestration/pipeline.py",
-      "size_bytes": 83780,
-      "sha256": "85d95bd3dfafd5c1a22eecd63fb5bfecf8005a128579416e93b650e9db338771"
+      "size_bytes": 118280,
+      "sha256": "566b4bc4dadd7b693da1c40770c295e84c6e99ca81dc984d5c22b7e03651cd19"
     },
     {
       "path": "src/orchestration/recovery.py",
-      "size_bytes": 3642,
-      "sha256": "49e3876488b76930f115da3a0ba3cffc224cba189d031c4ee3c6b341ab95526e"
+      "size_bytes": 3617,
+      "sha256": "3caaaf0223b4729e976e3ade5c610a4fb0c7147370de40e698fb2ddb46a76b5f"
     },
     {
       "path": "src/phase2core/__init__.py",
@@ -432,13 +446,13 @@
     },
     {
       "path": "src/phase2core/activity_detector.py",
-      "size_bytes": 5950,
-      "sha256": "00f31040b6d3a471b9db29f05232884514846a671c82fc5db96b00a273e85974"
+      "size_bytes": 5902,
+      "sha256": "58f824a512f497bc3367602f425292522a1fb23a327af3ddef8c8d85ca2ed84e"
     },
     {
       "path": "src/phase2core/audio.py",
-      "size_bytes": 3412,
-      "sha256": "2f424928c8a102fe1940b6a4e25b2c29832167a3580998eb6bad47743905585a"
+      "size_bytes": 3392,
+      "sha256": "27456b3bde27892923ed1538835fcbf5618433c8edbaad7c3dda960b630bd8c8"
     },
     {
       "path": "src/phase2core/chunker.py",
@@ -457,8 +471,8 @@
     },
     {
       "path": "src/phase2core/db.py",
-      "size_bytes": 8914,
-      "sha256": "483c60b8da7caca358fd4d01b3083733ead0e11d0b23cb8ad158e0dba21b7447"
+      "size_bytes": 9880,
+      "sha256": "9e4821b2d745fef8db3d095d3d2ddadb402329b75c5a50ab7d09d9dcf41d9592"
     },
     {
       "path": "src/phase2core/demucs_isolator.py",
@@ -477,8 +491,8 @@
     },
     {
       "path": "src/phase2core/json_updater.py",
-      "size_bytes": 5390,
-      "sha256": "a8305b8520c0730f6d240f4cffcf0f5890594144cf2f0941f058d49d1815ea69"
+      "size_bytes": 5407,
+      "sha256": "890637f606455b7a4f09c957a3a2107996c12903cf520031bf2188fe9121ba05"
     },
     {
       "path": "src/phase2core/lrc_generator.py",
@@ -497,13 +511,13 @@
     },
     {
       "path": "src/phase2core/mms_model.py",
-      "size_bytes": 6798,
-      "sha256": "404963232527eb88e2d9acf3dd2d8c1304fa4dcd2df684c553d44ec7792ba46c"
+      "size_bytes": 6788,
+      "sha256": "71c553f35d71bfa46dc9b030616b4c139d1fa8c2d88e61384b54203d5b92f901"
     },
     {
       "path": "src/phase2core/pipeline.py",
-      "size_bytes": 62689,
-      "sha256": "5811fc6e50e7aebe545e7353813dd273a015c2571f4c145b9c413daa3e29cca3"
+      "size_bytes": 62636,
+      "sha256": "9f1c876ab6fece316a511f9d5d0f802ff84fe566907c26782a59b0cf8a3f9aa6"
     },
     {
       "path": "src/phase2core/scanner.py",
@@ -557,8 +571,8 @@
     },
     {
       "path": "src/providers/spotify.py",
-      "size_bytes": 24973,
-      "sha256": "52df7bee07f5b2d1fd5da26212a63f404e37678c3bc8b48c70f01b05324f1c30"
+      "size_bytes": 24939,
+      "sha256": "252c2437efdd5fb178d5d6c27cc2eee4b1c41f9faf5d5f6a78f55849252b454a"
     },
     {
       "path": "src/providers/spotify_auth.py",
@@ -572,13 +586,8 @@
     },
     {
       "path": "src/providers/ytm_media.py",
-      "size_bytes": 13524,
-      "sha256": "d1de320bdd3c5cc66bcee8bbcd3670181da5db2e15bbf98e3ea78dbe2c20477f"
-    },
-    {
-      "path": "src/README.md",
-      "size_bytes": 3744,
-      "sha256": "e20f18b9782846da6f2bdeb118df013223746d0234ca54a473a07f95c74a01f1"
+      "size_bytes": 13519,
+      "sha256": "84cc0804c1bdb07f9cac4942bfd74df0c39d433b681d23e71ad3de1b67a08977"
     },
     {
       "path": "src/rendercore/__init__.py",
@@ -597,8 +606,8 @@
     },
     {
       "path": "src/rendercore/audio_io.py",
-      "size_bytes": 3827,
-      "sha256": "5c9a55ab4b1282683f8217e2d4b6050a6f4f7995fd026eb20b49a343ab05836d"
+      "size_bytes": 3815,
+      "sha256": "0394e7dce5c37ebbb4975d6fb6be49a7533f5a543bd88bdde875f3b1649f13e2"
     },
     {
       "path": "src/rendercore/font_manager.py",
@@ -607,8 +616,8 @@
     },
     {
       "path": "src/rendercore/utils.py",
-      "size_bytes": 6295,
-      "sha256": "8c17a3f68e15bb49d418f784056ec9b00eeb5143b2da248ed779b01545424c90"
+      "size_bytes": 6279,
+      "sha256": "0f9aeb881e983fd9c751e58dc47af7493b8412487acfceac9af9630a17284d4a"
     },
     {
       "path": "src/rendercore/video_grabber.py",
@@ -617,8 +626,8 @@
     },
     {
       "path": "src/rendercore/video_renderer.py",
-      "size_bytes": 2847,
-      "sha256": "3460e5d4fbe481528796fee5d6e2b0a3d6e5f48ea9b50dc098a124151ad47c54"
+      "size_bytes": 2829,
+      "sha256": "7278c9d22baff13fc61f3f4a1fd64b59e3390fadd90f882babcec2f0be74e338"
     },
     {
       "path": "src/sql/001_initial.sql",
@@ -632,28 +641,38 @@
     },
     {
       "path": "src/storage/json_record.py",
-      "size_bytes": 9385,
-      "sha256": "847db252f0cffb94478af3e813624e28404e9c0bb1649c7c1809cdaaf0be04d7"
+      "size_bytes": 9373,
+      "sha256": "7ea6f30d4e35a0269ccb7dfea347320438409725765c1883432ef7dfd1fbe020"
     },
     {
       "path": "src/storage/maintenance.py",
-      "size_bytes": 5225,
-      "sha256": "e8c9aa770c560cd07c1d2ac3d09ecc6adf84818d8781b0da969d36abf45db825"
+      "size_bytes": 15121,
+      "sha256": "18e308ab07f131941ccf819aafc8f157a8432d47812006772ede40d900c62b43"
     },
     {
       "path": "src/storage/playlist_db.py",
-      "size_bytes": 9777,
-      "sha256": "64eb71710b6f277574e740696d7df4a1fcd5168c9e9cd97cecba8dd7657cb41b"
+      "size_bytes": 8731,
+      "sha256": "e48dce9b42d6219dfaf91244b6fc5af6673043db1afb689c739e89da89b4a076"
     },
     {
       "path": "src/storage/reel_db.py",
-      "size_bytes": 3095,
-      "sha256": "17fa6e490b960cc9e4714c15464a51b9ba1faebfb77d179d80bd8185150234a8"
+      "size_bytes": 3273,
+      "sha256": "82dbf9eb3c48a829ff00437c3bca3d48d67ed427a67b466ad4368a3bcc84f2e0"
+    },
+    {
+      "path": "src/storage/song_catalog.py",
+      "size_bytes": 10975,
+      "sha256": "adaf0bfbe5f67776823303d421ce469614b61971a83e72d36b80873baa07262f"
     },
     {
       "path": "src/storage/song_db.py",
-      "size_bytes": 13618,
-      "sha256": "9b7628be87c917d204b8c3e7f1186cd239c5d9d1c55e925b59220aae52d016fe"
+      "size_bytes": 13512,
+      "sha256": "4b0dec6b8c855f9bc46900d5c290b1ca30ac10c9884166c4b026699e12963ac8"
+    },
+    {
+      "path": "src/storage/unified_db.py",
+      "size_bytes": 34784,
+      "sha256": "8dff150ac4fd0a1b9b9fed5901e65dc9183f8cd3448142d5057ddc4350204239"
     },
     {
       "path": "src/video/__init__.py",
@@ -661,19 +680,19 @@
       "sha256": "9b53e2f7c660b3c6842154f6aa8068f25fd6fc033a164fbd61387a609abce39b"
     },
     {
+      "path": "src/video/lyric_offset.py",
+      "size_bytes": 20785,
+      "sha256": "8456cb98cf36731821cb3cfdc2d83f3344166d5a5b76d2285ef683e66ceeaa09"
+    },
+    {
       "path": "src/video/reel.py",
-      "size_bytes": 7577,
-      "sha256": "c64a353e1dd76adcb43e854cead887cd8f8b2135610d7cf0d014a20a3f4d8bf5"
+      "size_bytes": 7563,
+      "sha256": "1a27ffb5d240cb911ff8043e4ed80e122db8a46d3fc629c847193f1997890fca"
     },
     {
       "path": "src/video/selection.py",
       "size_bytes": 4097,
       "sha256": "d2694291382c7b5bfd4e87db301d3cc1279950272f45325553070a5b8c2274c4"
-    },
-    {
-      "path": "src/video/synchronization.py",
-      "size_bytes": 7388,
-      "sha256": "566ab76ba2a59849c55a71493029bec02307667f0352909432d5bf08a117e785"
     },
     {
       "path": "src/video/youtube_source.py",
@@ -692,8 +711,8 @@
     },
     {
       "path": "tests/test_foreign_key_lifecycle.py",
-      "size_bytes": 4764,
-      "sha256": "f4d7cd34c4c967284b81fa736b37de274537aef62dc668d931a45dbf99191fda"
+      "size_bytes": 4778,
+      "sha256": "9616a8e726968b3f41f9a12f07d54e360c108b3b82832980f37bb27868985d78"
     },
     {
       "path": "tests/test_lyric_word_fade.py",
@@ -707,13 +726,13 @@
     },
     {
       "path": "tests/test_offset_contract.py",
-      "size_bytes": 1279,
-      "sha256": "89b6ef820e2afc208f7e56039de14d652cc23eae7ff62ad3c558d72549e32a72"
+      "size_bytes": 860,
+      "sha256": "e3c904426470825d16520c58cef8a9c36c32f8503e80f12d42a79e4bc5b3aedd"
     },
     {
       "path": "tests/test_project_regressions.py",
-      "size_bytes": 25344,
-      "sha256": "c8c78472473d6d3b7890fa844276b6957edbfdfe54dd07dae0905ec4d5196429"
+      "size_bytes": 26013,
+      "sha256": "e2249356223ceb6db56b7db603820be319e9e76e5bbf0ee72ec735522ef613f0"
     },
     {
       "path": "tests/test_spotify_api_contract.py",
@@ -722,28 +741,33 @@
     },
     {
       "path": "tests/test_spotify_isrc_only.py",
-      "size_bytes": 715,
-      "sha256": "95bb6b5cb5859f2b6062af1b335ea2528dce352a289a7987fb1131df9ff7d719"
+      "size_bytes": 717,
+      "sha256": "c638fe0c246f13b4f010075ddf9752bb7b1be429baecd99b7067f9377f4d127b"
     },
     {
       "path": "tests/test_unified_cli_contracts.py",
-      "size_bytes": 2862,
-      "sha256": "c1115136462d5ea462a7396280efc284583b22a6c283bf9e53bdb2829565b9c8"
+      "size_bytes": 3896,
+      "sha256": "490f53a8222ec21c07fcbf11b7d16ae6af1f1bf3ea2c07690aea791b4903ce4a"
     },
     {
       "path": "tests/test_unified_contracts.py",
-      "size_bytes": 1740,
-      "sha256": "ad55854bf43714edf928615e58be41368dcb8ce0fc13af45c662e287a2f594af"
+      "size_bytes": 1882,
+      "sha256": "7e8edeca47dc3f32e83ab96437657febc0137653a30959c22552e117f825d66f"
     },
     {
       "path": "tests/test_unified_runtime_contracts.py",
-      "size_bytes": 21182,
-      "sha256": "0a952899db89ab413c89bbf0880e8ddef29665f89c87e6ac3bc8aa818eaa3726"
+      "size_bytes": 23874,
+      "sha256": "3b7a6367a4d95e8a4c5ebc2f825d21b6077c48cecf57485462ad8d8c6dd5ad80"
+    },
+    {
+      "path": "tests/test_unified_storage_and_mms_offset.py",
+      "size_bytes": 15673,
+      "sha256": "7afc6d645a34ef71da4ec57e6ee71db53d1b61d34e588e84b26b0e316fda1c20"
     },
     {
       "path": "tests/test_v148_selection_and_lyrics.py",
-      "size_bytes": 5576,
-      "sha256": "0ff1806750de2212669d8c3fa5a4ecedcdfbf2bde2262ccbeec9ab3546cef276"
+      "size_bytes": 5731,
+      "sha256": "776bf6d5729abf6f7cd0077cad531af4c58b97606f8eda4445c2842eb4cc2891"
     }
   ]
 }
