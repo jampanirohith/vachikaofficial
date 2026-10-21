@@ -134,3 +134,33 @@ class Config:
             raise ValueError('runtime.require_cuda=true requires runtime.device to be a CUDA device')
         if require_cuda and allow_cpu_fallback:
             raise ValueError('runtime.require_cuda and runtime.allow_cpu_fallback are contradictory; disable CPU fallback when CUDA is mandatory')
+        # Reel intro values are optional for backwards compatibility with older configs.
+        # Validate present values so JSON strings such as "false" cannot turn a flag on.
+        for key in ('reel_intro.enabled', 'reel_intro.full_bleed_video'):
+            value = self.get(key)
+            if value is not None and not isinstance(value, bool):
+                raise ValueError(f'{key} must be boolean')
+        assets_dir = self.get('reel_intro.assets_dir', 'assets/reel_intro')
+        if not isinstance(assets_dir, str) or not assets_dir.strip():
+            raise ValueError('reel_intro.assets_dir must be a non-empty path string')
+        for key, default in (('reel_intro.duration_ms', 3800),
+                             ('reel_intro.silent_duration_ms', 2000),
+                             ('reel_intro.fade_in_ms', 300),
+                             ('reel_intro.fade_out_ms', 500)):
+            try:
+                value = int(self.get(key, default))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f'{key} must be an integer millisecond value') from exc
+            maximum = 6000 if key == 'reel_intro.silent_duration_ms' else 10000
+            if not 0 <= value <= maximum:
+                raise ValueError(f'{key} must be between 0 and {maximum} ms')
+        hp_lines = self.get('reel_intro.headphone_lines')
+        if hp_lines is not None:
+            if isinstance(hp_lines, str):
+                valid_lines = bool(hp_lines.strip())
+            elif isinstance(hp_lines, list):
+                valid_lines = bool(hp_lines) and all(isinstance(x, str) and x.strip() for x in hp_lines)
+            else:
+                valid_lines = False
+            if not valid_lines:
+                raise ValueError('reel_intro.headphone_lines must be a non-empty string or list of non-empty strings')

@@ -175,7 +175,10 @@ def test_reel_trimming_uses_absolute_mapped_source_timeline(monkeypatch, tmp_pat
     monkeypatch.setattr("src.rendercore.ass_generator.ASSGenerator", ASS)
     monkeypatch.setattr("src.rendercore.font_manager.ensure_telugu_font", lambda *_a, **_kw: tmp_path / "font.ttf")
     (tmp_path / "font.ttf").write_bytes(b"font")
-    cfg = SimpleNamespace(root=tmp_path, reels_dir=tmp_path / "reels" / "generated", fonts_dir=tmp_path, get=lambda key, default=None: default)
+    cfg = SimpleNamespace(
+        root=tmp_path, reels_dir=tmp_path / "reels" / "generated", fonts_dir=tmp_path,
+        get=lambda key, default=None: False if key == "reel_intro.enabled" else default,
+    )
     cfg.reels_dir.mkdir(parents=True, exist_ok=True)
     song = {"song_key": "1_A", "duration_ms": 60_000, "basename": "song", "eight_d_path": str(source_audio)}
     reel.build_reel(cfg, work, song, 10_000, 13_000, "VIDEO_A", 2_500, lrc, [], None)

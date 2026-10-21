@@ -17,10 +17,10 @@ class VideoRenderer:
         if codec=='h264_nvenc': return nvenc_video_args(self.cfg)
         return ['-c:v','libx264','-preset',str(self.cfg.get('render.preset','fast')),'-crf',str(self.cfg.get('render.crf',18)),'-pix_fmt','yuv420p']
 
-    def _run(self,input_video:Path,out:Path,codec:str)->Path:
+    def _run(self,input_video:Path,out:Path,codec:str,height_fraction:float|None=None)->Path:
         W=int(self.cfg.get('video_layout.output_width',1080)); H=int(self.cfg.get('video_layout.output_height',1920))
-        fraction=float(self.cfg.get('video_layout.height_fraction',0.80))
-        fraction=min(0.95,max(0.45,fraction))
+        fraction=float(self.cfg.get('video_layout.height_fraction',0.80) if height_fraction is None else height_fraction)
+        fraction=min(1.0,max(0.45,fraction))
         panel_h=max(2,int(round(H*fraction))); panel_h-=panel_h%2
         # Scale to the panel height, crop the center horizontally when wider than
         # the panel, then center the panel vertically on the 9:16 canvas.
@@ -38,17 +38,17 @@ class VideoRenderer:
             raise Phase3Error('VIDEO_RENDER_FAILED',str(exc)) from exc
         return out
 
-    def render(self,input_video:Path,tracking:dict|None=None,lyrics_plan:dict|None=None)->Path:
+    def render(self,input_video:Path,tracking:dict|None=None,lyrics_plan:dict|None=None,*,height_fraction:float|None=None)->Path:
         out=self.work/'video'/'video_9x16.mp4'; out.parent.mkdir(parents=True,exist_ok=True)
         preferred=self.cfg.get('render.video_codec','h264_nvenc')
         if preferred=='h264_nvenc' and ffmpeg_has_encoder('h264_nvenc'):
             try:
-                self._run(input_video,out,'h264_nvenc'); return out
+                self._run(input_video,out,'h264_nvenc',height_fraction); return out
             except Phase3Error as exc:
                 if out.exists():
                     try: out.unlink()
                     except Exception: pass
                 if self.logger:
                     self.logger.warning('NVENC static render failed; falling back to CPU libx264: %s',exc)
-        self._run(input_video,out,'libx264')
+        self._run(input_video,out,'libx264',height_fraction)
         return out

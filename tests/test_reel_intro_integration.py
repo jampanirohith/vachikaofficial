@@ -1,0 +1,131 @@
+from pathlib import Path
+
+from src.rendercore.reel_intro import Timeline
+from src.video.reel import _constrain_reel_window_to_video, _first_lyric_ms_in_hook, _hide_lead_in_lyrics, _parse_word_lrc, _plan_reel_window
+
+
+def test_intro_window_prepends_lead_in_before_hook_lyric(tmp_path):
+    lrc = tmp_path / "wordlevel.lrc"
+    lrc.write_text("[00:10.000]hello\n[00:11.000]world\n", encoding="utf-8")
+
+    assert _first_lyric_ms_in_hook(lrc, 10_000, 13_000) == 10_000
+    start, intro_ms, first_vocal, detail = _plan_reel_window(
+        lrc, 10_000, 13_000, intro_enabled=True, intro_duration_ms=3_200
+    )
+
+    assert start == 6_800
+    assert intro_ms == 3_200
+    assert first_vocal == 10_000
+    assert detail["enabled"] is True
+    assert detail["pre_roll_ms"] == 3_200
+
+
+def test_intro_window_adapts_when_song_starts_too_early(tmp_path):
+    lrc = tmp_path / "wordlevel.lrc"
+    lrc.write_text("[00:01.500]hello\n", encoding="utf-8")
+
+    start, intro_ms, first_vocal, detail = _plan_reel_window(
+        lrc, 0, 5_000, intro_enabled=True, intro_duration_ms=3_200
+    )
+    assert start == 0
+    assert intro_ms == 1_500
+    assert first_vocal == 1_500
+    assert detail["enabled"] is True
+    assert detail["duration_ms"] == 1_500
+
+
+def test_intro_window_disables_opening_if_lead_in_is_too_short(tmp_path):
+    lrc = tmp_path / "wordlevel.lrc"
+    lrc.write_text("[00:00.400]hello\n", encoding="utf-8")
+
+    start, intro_ms, _first_vocal, detail = _plan_reel_window(
+        lrc, 0, 5_000, intro_enabled=True, intro_duration_ms=3_200
+    )
+    assert start == 0
+    assert intro_ms == 0
+    assert detail["enabled"] is False
+    assert detail["reason"] == "insufficient_pre_vocal_lead_in"
+
+
+def test_intro_window_is_opt_out_without_changing_hook_times(tmp_path):
+    lrc = tmp_path / "wordlevel.lrc"
+    lrc.write_text("[00:10.000]hello\n", encoding="utf-8")
+
+    start, intro_ms, first_vocal, detail = _plan_reel_window(
+        lrc, 10_000, 13_000, intro_enabled=False, intro_duration_ms=3_200
+    )
+    assert start == 10_000
+    assert intro_ms == 0
+    assert first_vocal == 10_000
+    assert detail["reason"] == "disabled_by_config"
+
+
+def test_intro_hides_earlier_lyric_words_without_shifting_handoff_word(tmp_path):
+    lrc = tmp_path / "wordlevel.lrc"
+    lrc.write_text("[00:09.000]before[00:09.500]intro[00:10.000]hello[00:10.400]there\n", encoding="utf-8")
+
+    parsed = _parse_word_lrc(lrc)
+    visible = _hide_lead_in_lyrics(parsed, 10_000)
+
+    assert len(visible) == 1
+    assert visible[0]["display_text"] == "hello there"
+    assert [word["text"] for word in visible[0]["words"]] == ["hello", "there"]
+    assert visible[0]["words"][0]["start_ms"] == 10_000
+    assert visible[0]["words"][1]["start_ms"] == 10_400
+
+
+def test_intro_lead_in_is_shortened_when_video_mapping_starts_near_zero():
+    info = {"enabled": True, "reason": "opening_enabled", "duration_ms": 3_200}
+    start, intro_ms, detail = _constrain_reel_window_to_video(
+        6_800, 3_200, 10_000, 10_000, -9_000, info
+    )
+    assert start == 9_000
+    assert intro_ms == 1_000
+    assert detail["source_video_start_limited"] is True
+    assert detail["reason"] == "opening_enabled_source_start_limited"
+
+
+def test_intro_is_disabled_when_video_boundary_leaves_too_little_time():
+    info = {"enabled": True, "reason": "opening_enabled", "duration_ms": 3_200}
+    start, intro_ms, detail = _constrain_reel_window_to_video(
+        6_800, 3_200, 10_000, 10_000, -9_800, info
+    )
+    assert start == 10_000
+    assert intro_ms == 0
+    assert detail["reason"] == "insufficient_video_lead_in"
+
+
+def test_invalid_selected_hook_video_mapping_fails_loudly():
+    import pytest
+    with pytest.raises(RuntimeError, match="VIDEO_SOURCE_MAPPING_STARTS_BEFORE_ZERO"):
+        _constrain_reel_window_to_video(0, 0, 0, 500, -1_000, {"enabled": False})
+
+
+def test_shortened_timeline_scales_all_time_markers():
+    timeline = Timeline().scaled_to(1.5)
+    assert timeline.duration == 1.5
+    assert timeline.first_vocal == 1.40625
+    assert timeline.hp_out[1] == 1.40625
+
+
+def test_silent_black_intro_and_active_video_phase_are_separate():
+    timeline = Timeline.with_silent_lead(silent_duration=2.0, active_duration=3.8)
+
+    assert timeline.silent_duration == 2.0
+    assert timeline.duration == 5.8
+    # The prompt/background start with audio, while logo evaporation and video
+    # reveal finish together at the first lyric handoff.
+    assert timeline.hp_in[0] == 2.0
+    assert timeline.blur_hold_until > timeline.silent_duration
+    assert timeline.blur_lift_end == timeline.duration
+    assert timeline.logo_evaporate[1] == timeline.duration
+    assert timeline.hp_out[1] == timeline.duration
+    assert timeline.wordmark[1] < timeline.duration
+
+
+def test_zero_silent_duration_preserves_immediate_media_start():
+    timeline = Timeline.with_silent_lead(silent_duration=0.0, active_duration=3.8)
+
+    assert timeline.silent_duration == 0.0
+    assert timeline.duration == 3.8
+    assert timeline.hp_in[0] == 0.0

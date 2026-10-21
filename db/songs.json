@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-10-15T04:48:09.680901+00:00",
+  "generated_at_utc": "2026-10-21T12:25:38.099933+00:00",
   "authority": "db/vachika.db (songs.json is a generated catalog export; do not edit directly)",
   "song_count": 16,
   "songs": [
@@ -109,11 +109,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "completed",
-        "pipeline": "FINALIZED",
-        "quality": "passed",
-        "terminal": true,
-        "terminal_reason": "HOOK_SELECTION_DEFERRED"
+        "playlist": "processing",
+        "pipeline": "SOURCE_READY",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": "PROCESSING"
       },
       "sources": {
         "ytmusic_audio_video_id": "gFIASqhTBPs",
@@ -130,14 +130,14 @@
       "paths": {
         "source_audio": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/acquisition/master.mp3",
         "source_metadata": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/acquisition/master.info.json",
-        "synced_lrc": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.lrc",
-        "wordlevel_lrc": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_wordlevel.lrc",
-        "song_audio": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.mp3",
-        "audio_8d": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_8D.mp3",
+        "synced_lrc": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/lyrics/source.lrc",
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
         "song_json": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.json",
         "youtube_reference_audio": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/source_5749716748029148/youtube/reference_audio.wav",
-        "reel_video": "reels/generated/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_reel.mp4",
-        "reel_json": "reels/generated/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_reel.json"
+        "reel_video": null,
+        "reel_json": null
       },
       "record_path": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.json",
       "hashes": {
@@ -151,25 +151,25 @@
       "spotify": {
         "track_id": "6D7qZFYHS3L81jcAfEz0ob",
         "track_url": "https://open.spotify.com/track/6D7qZFYHS3L81jcAfEz0ob",
-        "album_id": "53g6M7ke2tnSuVNy1OwgwJ",
+        "album_id": null,
         "isrc": "INA090203622"
       },
       "title": "Singarala",
       "artists": "S. P. Balasubrahmanyam, K. J. Yesudas",
       "album": "Dalapathi",
-      "duration_ms": 328439,
+      "duration_ms": 328438,
       "details": {
-        "album_artist": "Ilaiyaraaja",
-        "release_date": "1991-11-01",
-        "track_number": 1,
-        "disc_number": 1,
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
         "isrc": "INA090203622",
-        "spotify_album_id": "53g6M7ke2tnSuVNy1OwgwJ",
-        "spotify_track_uri": "spotify:track:6D7qZFYHS3L81jcAfEz0ob",
-        "explicit": 0,
-        "album_type": "album",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
         "album_release_precision": null,
-        "album_total_tracks": 7,
+        "album_total_tracks": null,
         "album_label": null
       },
       "playlist": {
@@ -180,82 +180,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "processing",
-        "pipeline": "SOURCE_READY",
+        "playlist": "completed",
+        "pipeline": "pending",
         "quality": null,
-        "terminal": false,
-        "terminal_reason": "PROCESSING"
-      },
-      "sources": {
-        "ytmusic_audio_video_id": "_iyRFJya_dY",
-        "ytmusic_audio_url": "https://music.youtube.com/watch?v=_iyRFJya_dY",
-        "youtube_video_id": "uerXXfXCq9c",
-        "youtube_video_url": "https://www.youtube.com/watch?v=uerXXfXCq9c",
-        "youtube_offset_ms": 570,
-        "youtube_offset_method": "mms-lrclib-dual-audio-offset-v3",
-        "youtube_offset_confidence": 0.8625,
-        "youtube_offset_status": "accepted",
-        "lyrics_provider": "lrclib",
-        "lyrics_status": "synced"
-      },
-      "paths": {
-        "source_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.mp3",
-        "source_metadata": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.info.json",
-        "synced_lrc": "temp/3_6D7qZFYHS3L81jcAfEz0ob/lyrics/source.lrc",
-        "wordlevel_lrc": null,
-        "song_audio": null,
-        "audio_8d": null,
-        "song_json": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.json",
-        "youtube_reference_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/source_201e41a7cadd53a4/youtube/reference_audio.wav",
-        "reel_video": null,
-        "reel_json": null
-      },
-      "record_path": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.json",
-      "hashes": {
-        "source_audio_sha256": "201e41a7cadd53a49ab52821b9b9a403f3b7426a437e1a5396774c3a2a4fe91e",
-        "synced_lrc_sha256": "585f1f561645b5e88d180d120721262053f2e13c7a7660d2a86f856310db2604",
-        "source_metadata_sha256": "7a901812c74fa4ee86ff0f958dcbbd77053d6173d30a710317195b4c67c33466"
-      }
-    },
-    {
-      "song_key": "4_4M8dRVFWKMfh7hPzGCYxra",
-      "spotify": {
-        "track_id": "4M8dRVFWKMfh7hPzGCYxra",
-        "track_url": "https://open.spotify.com/track/4M8dRVFWKMfh7hPzGCYxra",
-        "album_id": "5CcuoUl0yhFPRLMohxwvIt",
-        "isrc": "INA090209069"
-      },
-      "title": "Poovullo Daagunna",
-      "artists": "Unnikrishnan, Sujatha",
-      "album": "Jeans",
-      "duration_ms": 415503,
-      "details": {
-        "album_artist": "A.R. Rahman",
-        "release_date": "1999-10-30",
-        "track_number": 2,
-        "disc_number": 1,
-        "isrc": "INA090209069",
-        "spotify_album_id": "5CcuoUl0yhFPRLMohxwvIt",
-        "spotify_track_uri": "spotify:track:4M8dRVFWKMfh7hPzGCYxra",
-        "explicit": 0,
-        "album_type": "single",
-        "album_release_precision": null,
-        "album_total_tracks": 6,
-        "album_label": null
-      },
-      "playlist": {
-        "id": "0yK4w4LmQ4cL9MWwXwlO31",
-        "name": "90s OLD TELUGU SONGS (2)",
-        "position": 4,
-        "serial": 4,
-        "added_at": "2026-10-07T04:38:59Z"
-      },
-      "status": {
-        "playlist": "error",
-        "pipeline": "error",
-        "quality": "failed",
-        "terminal": false,
-        "terminal_reason": "LRCLIB request failed for /search"
+        "terminal": true,
+        "terminal_reason": "FINALIZED"
       },
       "sources": {
         "ytmusic_audio_video_id": null,
@@ -276,12 +205,83 @@
         "wordlevel_lrc": null,
         "song_audio": null,
         "audio_8d": null,
-        "song_json": "songs/final/004_Poovullo Daagunna - Unnikrishnan, Sujatha.json",
+        "song_json": null,
+        "youtube_reference_audio": null,
+        "reel_video": "reels/generated/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas_reel.mp4",
+        "reel_json": "reels/generated/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas_reel.json"
+      },
+      "record_path": null,
+      "hashes": {
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
+      }
+    },
+    {
+      "song_key": "4_4M8dRVFWKMfh7hPzGCYxra",
+      "spotify": {
+        "track_id": "4M8dRVFWKMfh7hPzGCYxra",
+        "track_url": "https://open.spotify.com/track/4M8dRVFWKMfh7hPzGCYxra",
+        "album_id": null,
+        "isrc": "INA090209069"
+      },
+      "title": "Poovullo Daagunna",
+      "artists": "Unnikrishnan, Sujatha",
+      "album": "Jeans",
+      "duration_ms": 415503,
+      "details": {
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
+        "isrc": "INA090209069",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
+        "album_release_precision": null,
+        "album_total_tracks": null,
+        "album_label": null
+      },
+      "playlist": {
+        "id": "0yK4w4LmQ4cL9MWwXwlO31",
+        "name": "90s OLD TELUGU SONGS (2)",
+        "position": 4,
+        "serial": 4,
+        "added_at": "2026-10-07T04:38:59Z"
+      },
+      "status": {
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
+        "terminal": false,
+        "terminal_reason": null
+      },
+      "sources": {
+        "ytmusic_audio_video_id": null,
+        "ytmusic_audio_url": null,
+        "youtube_video_id": null,
+        "youtube_video_url": null,
+        "youtube_offset_ms": null,
+        "youtube_offset_method": null,
+        "youtube_offset_confidence": null,
+        "youtube_offset_status": null,
+        "lyrics_provider": null,
+        "lyrics_status": null
+      },
+      "paths": {
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
+        "wordlevel_lrc": null,
+        "song_audio": null,
+        "audio_8d": null,
+        "song_json": null,
         "youtube_reference_audio": null,
         "reel_video": null,
         "reel_json": null
       },
-      "record_path": "songs/final/004_Poovullo Daagunna - Unnikrishnan, Sujatha.json",
+      "record_path": null,
       "hashes": {
         "source_audio_sha256": null,
         "synced_lrc_sha256": null,
@@ -293,7 +293,7 @@
       "spotify": {
         "track_id": "39RE07kcHln5DjnerRCaKy",
         "track_url": "https://open.spotify.com/track/39RE07kcHln5DjnerRCaKy",
-        "album_id": "7AI6F6RpmTlmJ09EOhOUw4",
+        "album_id": null,
         "isrc": "INS181415265"
       },
       "title": "Na Cheli Rojave",
@@ -301,17 +301,17 @@
       "album": "Roja",
       "duration_ms": 296472,
       "details": {
-        "album_artist": "A.R. Rahman",
-        "release_date": "2014-08-01",
-        "track_number": 3,
-        "disc_number": 1,
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
         "isrc": "INS181415265",
-        "spotify_album_id": "7AI6F6RpmTlmJ09EOhOUw4",
-        "spotify_track_uri": "spotify:track:39RE07kcHln5DjnerRCaKy",
-        "explicit": 0,
-        "album_type": "single",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
         "album_release_precision": null,
-        "album_total_tracks": 6,
+        "album_total_tracks": null,
         "album_label": null
       },
       "playlist": {
@@ -322,11 +322,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "error",
-        "pipeline": "error",
-        "quality": "failed",
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
         "terminal": false,
-        "terminal_reason": "LRCLIB request failed for /get"
+        "terminal_reason": null
       },
       "sources": {
         "ytmusic_audio_video_id": null,
@@ -347,12 +347,12 @@
         "wordlevel_lrc": null,
         "song_audio": null,
         "audio_8d": null,
-        "song_json": "songs/final/005_Na Cheli Rojave - S. P. Balasubrahmanyam, Sujatha.json",
+        "song_json": null,
         "youtube_reference_audio": null,
         "reel_video": null,
         "reel_json": null
       },
-      "record_path": "songs/final/005_Na Cheli Rojave - S. P. Balasubrahmanyam, Sujatha.json",
+      "record_path": null,
       "hashes": {
         "source_audio_sha256": null,
         "synced_lrc_sha256": null,
@@ -393,11 +393,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "processing",
-        "pipeline": "SOURCE_READY",
-        "quality": null,
+        "playlist": "needs_review",
+        "pipeline": "MMS_OFFSET_NEEDS_REVIEW",
+        "quality": "needs_review",
         "terminal": false,
-        "terminal_reason": "PROCESSING"
+        "terminal_reason": "MMS_OFFSET_ANCHOR_NOT_FOUND: MMS could not confidently locate the LRCLIB lyric phrase in reference audio. No energy-envelope fallback is enabled; review the selected source or increase youtube_offset.search_max_seconds."
       },
       "sources": {
         "ytmusic_audio_video_id": null,
@@ -506,7 +506,7 @@
       "spotify": {
         "track_id": "6BDtczWG8QhZz5RPLpNcgB",
         "track_url": "https://open.spotify.com/track/6BDtczWG8QhZz5RPLpNcgB",
-        "album_id": null,
+        "album_id": "50iJYe6QgTwfB7VRzs1yRZ",
         "isrc": "INUM70501555"
       },
       "title": "Adi Arabi Kadalandam - Bombay / Soundtrack Version",
@@ -514,17 +514,17 @@
       "album": "Bombay",
       "duration_ms": 316533,
       "details": {
-        "album_artist": null,
-        "release_date": null,
-        "track_number": null,
-        "disc_number": null,
+        "album_artist": "Various Artists",
+        "release_date": "1994-01-01",
+        "track_number": 2,
+        "disc_number": 1,
         "isrc": "INUM70501555",
-        "spotify_album_id": null,
-        "spotify_track_uri": null,
-        "explicit": null,
-        "album_type": null,
+        "spotify_album_id": "50iJYe6QgTwfB7VRzs1yRZ",
+        "spotify_track_uri": "spotify:track:6BDtczWG8QhZz5RPLpNcgB",
+        "explicit": 0,
+        "album_type": "compilation",
         "album_release_precision": null,
-        "album_total_tracks": null,
+        "album_total_tracks": 6,
         "album_label": null
       },
       "playlist": {
@@ -535,11 +535,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "pending",
-        "pipeline": "pending",
+        "playlist": "processing",
+        "pipeline": "SOURCE_READY",
         "quality": null,
         "terminal": false,
-        "terminal_reason": null
+        "terminal_reason": "PROCESSING"
       },
       "sources": {
         "ytmusic_audio_video_id": null,
@@ -550,26 +550,26 @@
         "youtube_offset_method": null,
         "youtube_offset_confidence": null,
         "youtube_offset_status": null,
-        "lyrics_provider": null,
-        "lyrics_status": null
+        "lyrics_provider": "lrclib",
+        "lyrics_status": "synced"
       },
       "paths": {
-        "source_audio": null,
-        "source_metadata": null,
-        "synced_lrc": null,
+        "source_audio": "temp/8_6BDtczWG8QhZz5RPLpNcgB/acquisition/master.mp3",
+        "source_metadata": "temp/8_6BDtczWG8QhZz5RPLpNcgB/acquisition/master.info.json",
+        "synced_lrc": "temp/8_6BDtczWG8QhZz5RPLpNcgB/lyrics/source.lrc",
         "wordlevel_lrc": null,
         "song_audio": null,
         "audio_8d": null,
-        "song_json": null,
+        "song_json": "songs/final/008_Adi Arabi Kadalandam - Bombay _ Soundtrack Version - Remo Fernandes.json",
         "youtube_reference_audio": null,
         "reel_video": null,
         "reel_json": null
       },
-      "record_path": null,
+      "record_path": "songs/final/008_Adi Arabi Kadalandam - Bombay _ Soundtrack Version - Remo Fernandes.json",
       "hashes": {
-        "source_audio_sha256": null,
-        "synced_lrc_sha256": null,
-        "source_metadata_sha256": null
+        "source_audio_sha256": "5e05116ffcd1c3b19b3e4a712ae6b00c0b715a213421b85f4997516a9a677018",
+        "synced_lrc_sha256": "5817ac0d1dc40c694c984312654623f60f418217f4c9acade84aeb81d5a9d828",
+        "source_metadata_sha256": "ba0e190f6617d6706cea1560e72cb71e5c9a484c2c5d1bd443fcfdbb437f30f3"
       }
     },
     {

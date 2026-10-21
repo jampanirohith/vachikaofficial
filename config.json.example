@@ -31,7 +31,7 @@
     "market": "IN",
     "timeout_seconds": 30,
     "max_retries": 4,
-    "redirect_uri": "http://127.0.0.1:8888/callback",
+    "redirect_uri": "http://127.0.0.1:8080",
     "require_user_auth": true
   },
   "ytmusic": {
@@ -49,7 +49,7 @@
       "fragment_retries": 3,
       "socket_timeout_seconds": 60,
       "cookies_from_browser": null,
-      "cookie_file": null
+      "cookie_file": "cookies.txt"
     }
   },
   "lyrics": {
@@ -60,18 +60,18 @@
     "request_delay_seconds": 0.5,
     "font_filename": "Suravaram-Regular.ttf",
     "font_name": "Suravaram",
-    "font_size": 80,
+    "font_size": 120,
     "font_bold": false,
     "outline": 3,
     "shadow": 4,
     "center_x": 540,
     "center_y": 960,
     "base_color": "#FFFFFF",
-    "current_color": "#FFD65A",
+    "current_color": "#FFFFFF",
     "completed_color": "#FFFFFF",
     "word_fade_in_ms": 80,
     "word_fade_out_ms": 450,
-    "max_chars_single_line": 30,
+    "max_chars_single_line": 50,
     "min_scale_x": 70,
     "download_only_synced": true,
     "search_fallback_enabled": true,
@@ -176,7 +176,7 @@
   "video_layout": {
     "output_width": 1080,
     "output_height": 1920,
-    "height_fraction": 0.8
+    "height_fraction": 0.6
   },
   "render": {
     "video_codec": "h264_nvenc",
@@ -193,5 +193,18 @@
   "youtube_video_search": {
     "results_to_fetch": 20,
     "selection_rule": "title + album + video song hd; skip lyric/lyrics/lyrical titles; first remaining result; no duration filtering"
+  },
+  "reel_intro": {
+    "enabled": true,
+    "assets_dir": "assets/reel_intro",
+    "duration_ms": 3800,
+    "silent_duration_ms": 2000,
+    "headphone_lines": [
+      "USE HEADPHONES",
+      "FOR BETTER EXPERIENCE"
+    ],
+    "fade_in_ms": 300,
+    "fade_out_ms": 500,
+    "full_bleed_video": false
   }
 }

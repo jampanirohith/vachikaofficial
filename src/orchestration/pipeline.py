@@ -518,22 +518,26 @@ class Pipeline:
         self._validate_package(final_mp3, final_lrc, final_wlrc, final_8d, final_json, duration, reel_final, reel_json_final)
 
         self.reels_db.upsert("reel_hooks", "reel_key", reel_key, {"start_ms": hs, "end_ms": he, "duration_ms": he-hs, "input_method": "hook_queue_json"})
+        reel_timeline = rmeta.get("timeline", {}) if isinstance(rmeta, dict) else {}
+        reel_start_ms = int(reel_timeline.get("reel_start_ms", hs))
+        reel_end_ms = int(reel_timeline.get("reel_end_ms", he))
+        reel_duration_ms = int(reel_timeline.get("duration_ms", he - hs))
         self.reels_db.upsert("reel_youtube_sync", "reel_key", reel_key, {
             "video_id": video_id, "video_url": video_url, "video_offset_ms": offset_ms,
-            "mapped_start_ms": hs + offset_ms, "mapped_end_ms": he + offset_ms,
+            "mapped_start_ms": reel_start_ms + offset_ms, "mapped_end_ms": reel_end_ms + offset_ms,
             "guard_before_ms": int(self.cfg.get("video_match.guard_before_ms", 1500)),
             "guard_after_ms": int(self.cfg.get("video_match.guard_after_ms", 1500)), "status": "validated",
         })
         self.reels_db.upsert("reel_audio", "reel_key", reel_key, {
             "source_8d_path": str(final_8d), "source_8d_sha256": sha256_file(final_8d),
-            "crop_start_ms": hs, "crop_end_ms": he, "crop_duration_ms": he-hs,
+            "crop_start_ms": reel_start_ms, "crop_end_ms": reel_end_ms, "crop_duration_ms": reel_duration_ms,
             "output_path": str(work / "audio" / "hook_8d.mp3"),
             "output_sha256": sha256_file(work / "audio" / "hook_8d.mp3"), "status": "validated",
         })
         guard_before_ms = int(self.cfg.get("video_match.guard_before_ms", 1500))
         guard_after_ms = int(self.cfg.get("video_match.guard_after_ms", 1500))
-        mapped_start_ms = hs + offset_ms
-        mapped_end_ms = he + offset_ms
+        mapped_start_ms = reel_start_ms + offset_ms
+        mapped_end_ms = reel_end_ms + offset_ms
         trim_start_ms = min(guard_before_ms, mapped_start_ms)
 
         self.reels_db.upsert("reel_video", "reel_key", reel_key, {
@@ -544,12 +548,12 @@ class Pipeline:
             "guard_before_ms": guard_before_ms,
             "guard_after_ms": guard_after_ms,
             "trim_start_ms": trim_start_ms,
-            "requested_duration_ms": he - hs,
+            "requested_duration_ms": reel_duration_ms,
             "actual_duration_ms": rv.get("probe", {}).get("duration_ms"),
             "width": 1080,
             "height": 1920,
-            "panel_height_px": int(1920 * 0.8),
-            "panel_height_percent": 80.0,
+            "panel_height_px": int(1920 * float((rmeta.get("video", {}) or {}).get("panel_height_percent", 80.0)) / 100),
+            "panel_height_percent": float((rmeta.get("video", {}) or {}).get("panel_height_percent", 80.0)),
             "encoder": rv.get("probe", {}).get("video_codec"),
             "output_path": str(reel_final),
             "status": "validated",
@@ -1460,10 +1464,24 @@ class Pipeline:
             })
 
             # -------- Reel --------
+            intro_assets_value = self.cfg.get("reel_intro.assets_dir", "assets/reel_intro")
+            intro_assets_dir = Path(intro_assets_value).expanduser()
+            if not intro_assets_dir.is_absolute():
+                intro_assets_dir = self.cfg.root / intro_assets_dir
+            intro_asset_names = ("meta.json", "stroke.png", "param_map.npy", "dot.png", "wordmark.png",
+                                 "bar_0.png", "bar_1.png", "bar_2.png", "bar_3.png", "bar_4.png")
+            intro_asset_hashes = {
+                name: sha256_file(intro_assets_dir / name)
+                for name in intro_asset_names if (intro_assets_dir / name).is_file()
+            }
             reel_fp = stable_json_hash({
                 "song_key": key, "hook_start_ms": hs, "hook_end_ms": he,
                 "video_id": video.video_id, "offset_ms": offset["candidate_offset_ms"],
-                "word_lrc_sha256": sha256_file(word_lrc), "eightd_sha256": sha256_file(eightd), "config_hash": self.cfg.config_hash,
+                "word_lrc_sha256": sha256_file(word_lrc), "eightd_sha256": sha256_file(eightd),
+                "config_hash": self.cfg.config_hash,
+                "reel_intro_recipe": "vachika-opening-integration-v2-silent-black-intro",
+                "reel_intro_enabled": bool(self.cfg.get("reel_intro.enabled", True)),
+                "reel_intro_assets": intro_asset_hashes,
             })
             active_stage_id = self._stage(key, "reel", reel_fp)
             song_record = {"song_key": key, "basename": name, "duration_ms": acq["duration_ms"], "eight_d_path": str(eightd)}
@@ -1472,21 +1490,27 @@ class Pipeline:
             active_stage_id = None
 
             rv = json.loads((work / "validation" / "reel_validation.json").read_text(encoding="utf-8"))
+            reel_timeline = rmeta.get("timeline", {}) if isinstance(rmeta, dict) else {}
+            reel_start_ms = int(reel_timeline.get("reel_start_ms", hs))
+            reel_end_ms = int(reel_timeline.get("reel_end_ms", he))
+            reel_duration_ms = int(reel_timeline.get("duration_ms", he-hs))
             self.reels_db.upsert("reel_youtube_sync", "reel_key", reel_key, {
                 "video_id": video.video_id, "video_url": video.video_url, "video_offset_ms": offset["candidate_offset_ms"],
-                "mapped_start_ms": hs + offset["candidate_offset_ms"], "mapped_end_ms": he + offset["candidate_offset_ms"],
+                "mapped_start_ms": reel_start_ms + offset["candidate_offset_ms"], "mapped_end_ms": reel_end_ms + offset["candidate_offset_ms"],
                 "guard_before_ms": int(self.cfg.get("video_match.guard_before_ms", 1500)), "guard_after_ms": int(self.cfg.get("video_match.guard_after_ms", 1500)), "status": "validated",
             })
             self.reels_db.upsert("reel_audio", "reel_key", reel_key, {
-                "source_8d_path": str(eightd), "source_8d_sha256": sha256_file(eightd), "crop_start_ms": hs, "crop_end_ms": he,
-                "crop_duration_ms": he-hs, "output_path": str(work / "audio" / "hook_8d.mp3"), "output_sha256": sha256_file(work / "audio" / "hook_8d.mp3"), "status": "validated",
+                "source_8d_path": str(eightd), "source_8d_sha256": sha256_file(eightd), "crop_start_ms": reel_start_ms, "crop_end_ms": reel_end_ms,
+                "crop_duration_ms": reel_duration_ms, "output_path": str(work / "audio" / "hook_8d.mp3"), "output_sha256": sha256_file(work / "audio" / "hook_8d.mp3"), "status": "validated",
             })
             self.reels_db.upsert("reel_video", "reel_key", reel_key, {
-                "video_source_id": video.video_id, "source_url": video.video_url, "source_start_ms": hs + offset["candidate_offset_ms"],
-                "source_end_ms": he + offset["candidate_offset_ms"], "guard_before_ms": int(self.cfg.get("video_match.guard_before_ms", 1500)),
-                "guard_after_ms": int(self.cfg.get("video_match.guard_after_ms", 1500)), "trim_start_ms": hs + offset["candidate_offset_ms"],
-                "requested_duration_ms": he-hs, "actual_duration_ms": rv.get("probe", {}).get("duration_ms"), "width": 1080, "height": 1920,
-                "panel_height_px": int(1920 * 0.8), "panel_height_percent": 80.0, "encoder": rv.get("probe", {}).get("video_codec"), "output_path": str(rf), "status": "validated",
+                "video_source_id": video.video_id, "source_url": video.video_url, "source_start_ms": reel_start_ms + offset["candidate_offset_ms"],
+                "source_end_ms": reel_end_ms + offset["candidate_offset_ms"], "guard_before_ms": int(self.cfg.get("video_match.guard_before_ms", 1500)),
+                "guard_after_ms": int(self.cfg.get("video_match.guard_after_ms", 1500)), "trim_start_ms": max(0, reel_start_ms + offset["candidate_offset_ms"]),
+                "requested_duration_ms": reel_duration_ms, "actual_duration_ms": rv.get("probe", {}).get("duration_ms"), "width": 1080, "height": 1920,
+                "panel_height_px": int(1920 * float((rmeta.get("video", {}) or {}).get("panel_height_percent", 80.0)) / 100),
+                "panel_height_percent": float((rmeta.get("video", {}) or {}).get("panel_height_percent", 80.0)),
+                "encoder": rv.get("probe", {}).get("video_codec"), "output_path": str(rf), "status": "validated",
             })
             resolved_lyrics = rmeta.get("lyrics", {}) if isinstance(rmeta, dict) else {}
             self.reels_db.upsert("reel_lyrics", "reel_key", reel_key, {

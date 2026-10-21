@@ -4,10 +4,14 @@ from src.rendercore.utils import Phase3Error, run_cmd, ffmpeg_has_encoder, nvenc
 
 class Assembler:
     def __init__(self,cfg,work_dir,logger): self.cfg=cfg; self.work=work_dir; self.logger=logger
-    def assemble(self,video:Path,audio:Path,ass:Path,out:Path,duration_ms:int|None=None)->Path:
+    def assemble(self,video:Path,audio:Path,ass:Path,out:Path,duration_ms:int|None=None,*,fade_out_ms:int=0)->Path:
         out.parent.mkdir(parents=True,exist_ok=True)
         fonts_dir=Path(self.cfg.fonts_dir)
         vf=f"ass=filename='{ass.as_posix().replace(':','\\:')}':fontsdir='{fonts_dir.as_posix().replace(':','\\:')}'"
+        if duration_ms is not None and int(fade_out_ms)>0:
+            fade_ms=min(int(fade_out_ms),int(duration_ms))
+            fade_start=max(0,int(duration_ms)-fade_ms)/1000.0
+            vf += f",fade=t=out:st={fade_start:.6f}:d={fade_ms/1000.0:.6f}"
         base=['ffmpeg','-y','-v','error','-i',str(video),'-i',str(audio),'-vf',vf,'-map','0:v:0','-map','1:a:0','-shortest']
         if duration_ms is not None:
             base += ['-t', f'{int(duration_ms)/1000.0:.6f}']
