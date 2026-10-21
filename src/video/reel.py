@@ -267,6 +267,9 @@ def build_reel(cfg, work, song, hook_start, hook_end, yt_video_source, yt_offset
             "fade_in_ms":int(cfg.get('reel_intro.fade_in_ms',300)),
             "fade_out_ms":int(cfg.get('reel_intro.fade_out_ms',500)),
             "silent_opening_ms":silent_opening_ms,
+            "footer_enabled":bool(cfg.get('reel_intro.footer_enabled', True)),
+            "footer_text":str(cfg.get('reel_intro.footer_text', 'Vachika')),
+            "footer_center_y":int(cfg.get('reel_intro.footer_center_y', 1800)),
             "total_opening_ms":silent_opening_ms+intro_effective_ms,
             "timeline_duration_ms":int(round(intro_timeline.duration*1000)),
         })

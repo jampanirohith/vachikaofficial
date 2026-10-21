@@ -24,14 +24,20 @@ The stand-alone `vachika_intro` prototype is integrated into the existing Vāchi
   "headphone_lines": ["USE HEADPHONES", "FOR BETTER EXPERIENCE"],
   "fade_in_ms": 300,
   "fade_out_ms": 500,
-  "full_bleed_video": false
+  "full_bleed_video": false,
+  "footer_enabled": true,
+  "footer_text": "Vachika",
+  "footer_center_y": 1800
 }
 ```
 
 - `enabled`: set to `false` to restore the old behavior and original hook interval.
 - `duration_ms`: duration of the song/video lead-in before the first lyric, 0–10000 ms. Raising it slows the logo animation and leaves more time for the blurred-video handoff. If the source has less lead-in, the active portion is shortened to protect lyric sync.
 - `silent_duration_ms`: black, silent opening before song and video begin, 0–6000 ms. The default is 2000 ms. Set it to `0` for no silent prefix.
-- `headphone_lines`: one or two lines shown to the right of the headphone glyph. The updated default uses uppercase copy inspired by the supplied sample.
+- `headphone_lines`: one or two lines shown to the right of the headphone glyph. A fine vertical divider now separates the icon from the copy; the updated default uses uppercase copy inspired by the supplied sample.
+- `footer_enabled`: add a compact `Vachika | [Instagram icon]` lockup in the black band beneath the centered video panel. It fades in with the intro-to-lyric handoff and stays in place for the rest of the Reel. The footer is deliberately omitted during the opening black logo draw so the main animation remains uncluttered.
+- `footer_text`: label displayed to the left of the footer divider (default `Vachika`).
+- `footer_center_y`: vertical center of the footer in 1080×1920 output coordinates (default `1800`, inside the lower black band for the default 80%-height video panel).
 - `fade_in_ms` / `fade_out_ms`: audio fades at the actual reel start/end. The ending picture fade uses `fade_out_ms` too.
 - `full_bleed_video`: defaults to `false` to preserve Vāchika's existing configured panel framing (80% of canvas height in the provided config). Set to `true` if the desired final body should match the intro prototype's full-height crop; this changes framing for the **entire** reel, not just the first frames.
 
@@ -57,7 +63,7 @@ The runtime compositor uses the pre-generated files above. Only if you regenerat
 
 - `src/rendercore/reel_intro/overlay.py`, `timeline.py`, and `beats.py`: adapted from the stand-alone reference project with package-relative imports.
 - `src/rendercore/intro_renderer.py`: frame/audio analysis and FFmpeg I/O wrapper.
-- `assets/reel_intro/`: all pre-generated runtime sprites, metadata, and pen-order map.
+- `assets/reel_intro/`: all pre-generated runtime sprites, metadata, pen-order map, and `instagram_icon.png` (the transparent Instagram mark supplied for the footer).
 - `assets/reel_intro/source/` and `src/rendercore/reel_intro/logo_prep.py`: original logo inputs and the asset regeneration script.
 - `docs/Vachika_Reel_Opening_Plan.md`: original opening plan preserved for reference.
 - `tests/test_reel_intro_integration.py`: pre-roll planning and early-track edge-case coverage.

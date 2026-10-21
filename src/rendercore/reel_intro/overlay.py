@@ -105,17 +105,23 @@ def headphone_glyph(px, color=(238, 230, 219)):
 # -------------------------------------------------------------- overlay -----
 class IntroOverlay:
     def __init__(self, assets="assets", env=None, beat_t=0.6, timeline=None, layout=None,
-                 hp_lines=("USE HEADPHONES", "FOR BETTER EXPERIENCE"), fonts=None, size=(W, H), fps=FPS):
+                 hp_lines=("USE HEADPHONES", "FOR BETTER EXPERIENCE"), fonts=None, size=(W, H), fps=FPS,
+                 footer_enabled=True, footer_text="Vachika", footer_center_y=1800):
         self.fps = fps
         self.tl = timeline or Timeline()
         self.lo = layout or Layout()
         self.W, self.H = size
+        self.assets = assets
         self.meta = json.load(open(os.path.join(assets, "meta.json")))
         self.env_arr = None if env is None else np.asarray(env, np.float32)
         self.beat_t = beat_t
+        self.footer_enabled = bool(footer_enabled)
+        self.footer_text = str(footer_text or "Vachika").strip() or "Vachika"
+        self.footer_center_y = int(footer_center_y)
         self._build_logo(assets)
         self._build_backdrop()
         self._build_headphone_line(hp_lines, fonts or {})
+        self._build_footer(assets, fonts or {})
 
     # ---- one-time setup ----------------------------------------------------
     def _build_logo(self, assets):
@@ -196,18 +202,30 @@ class IntroOverlay:
                 f = find_font([fonts.get("telugu")], round(lo.hp_font_px * 0.9))
             bbox = f.getbbox(text)
             rows.append((text, f, bbox[2] - bbox[0], bbox[3] - bbox[1]))
-        gap = 22
-        total_w = glyph_px + gap + max(r[2] for r in rows)
+        icon_gap = 22
+        divider_width = 3
+        text_gap = 22
+        text_width = max(r[2] for r in rows)
+        total_w = glyph_px + icon_gap + divider_width + text_gap + text_width
         total_h = max(glyph_px, sum(r[3] for r in rows) + 12 * (len(rows) - 1))
         pad = 36
         im = Image.new("RGBA", (total_w + 2 * pad, total_h + 2 * pad), (0, 0, 0, 0))
         im.alpha_composite(headphone_glyph(glyph_px), (pad, pad + (total_h - glyph_px) // 2))
         d = ImageDraw.Draw(im)
+        divider_x = pad + glyph_px + icon_gap
+        divider_h = max(30, round(total_h * 0.72))
+        divider_y = pad + (total_h - divider_h) // 2
+        d.rounded_rectangle(
+            (divider_x, divider_y, divider_x + divider_width - 1, divider_y + divider_h),
+            radius=1, fill=(238, 230, 219, 205),
+        )
+        text_x = divider_x + divider_width + text_gap
+        self.hp_divider_x = divider_x
         y = pad
         for text, f, w, h in rows:
-            d.text((pad + glyph_px + gap, y - f.getbbox(text)[1]), text, font=f, fill=(238, 230, 219, 255))
+            d.text((text_x, y - f.getbbox(text)[1]), text, font=f, fill=(238, 230, 219, 255))
             y += h + 12
-        # soft shadow so the line reads on bright footage
+        # soft shadow so the lockup reads on bright footage
         shadow = im.split()[3].filter(ImageFilter.GaussianBlur(9))
         sh = Image.new("RGBA", im.size, (0, 0, 0, 0))
         sh.putalpha(shadow.point(lambda v: int(v * 0.75)))
@@ -215,6 +233,82 @@ class IntroOverlay:
         arr = np.asarray(sh, np.float32) / 255.0
         self.hp = to_pm(arr[..., [2, 1, 0]], arr[..., 3])
         self.hp_xy = (self.W // 2 - self.hp.shape[1] // 2, lo.hp_center_y - self.hp.shape[0] // 2)
+
+    def _build_footer(self, assets, fonts):
+        """Build a small, centred brand lockup for the lower black letterbox band."""
+        if not self.footer_enabled:
+            self.footer = None
+            self.footer_xy = (0, 0)
+            return
+
+        icon_path = os.path.join(assets, "instagram_icon.png")
+        if not os.path.isfile(icon_path):
+            raise FileNotFoundError(
+                "REEL_INTRO_ASSETS_MISSING: instagram_icon.png is required when "
+                "reel_intro.footer_enabled is true"
+            )
+
+        color = (238, 230, 219, 255)
+        muted = (238, 230, 219, 205)
+        text = self.footer_text
+        font = find_font([fonts.get("latin")] + SERIF_FALLBACKS, 38)
+        bbox = font.getbbox(text)
+        text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        icon_px = 44
+        gap = 22
+        divider_width = 2
+        content_h = max(icon_px, text_h)
+        divider_h = min(content_h - 4, 36)
+        total_w = text_w + gap + divider_width + gap + icon_px
+        canvas = Image.new("RGBA", (total_w, content_h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(canvas)
+        text_y = (content_h - text_h) // 2 - bbox[1]
+        draw.text((0, text_y), text, font=font, fill=color)
+
+        divider_x = text_w + gap
+        divider_y = (content_h - divider_h) // 2
+        draw.rounded_rectangle(
+            (divider_x, divider_y, divider_x + divider_width - 1, divider_y + divider_h - 1),
+            radius=1, fill=muted,
+        )
+
+        with Image.open(icon_path) as opened:
+            icon = opened.convert("RGBA")
+        icon_alpha = icon.getchannel("A")
+        bbox_alpha = icon_alpha.point(lambda value: 255 if value > 4 else 0).getbbox()
+        if bbox_alpha:
+            icon = icon.crop(bbox_alpha)
+        icon = icon.resize((icon_px, icon_px), Image.Resampling.LANCZOS)
+        # Re-tint the uploaded white mark to the same warm cream as the wordmark.
+        icon_tinted = Image.new("RGBA", icon.size, color)
+        icon_tinted.putalpha(icon.getchannel("A"))
+        canvas.alpha_composite(icon_tinted, (divider_x + divider_width + gap, (content_h - icon_px) // 2))
+
+        rgba = np.asarray(canvas, np.float32) / 255.0
+        self.footer = to_pm(rgba[..., [2, 1, 0]], rgba[..., 3])
+        self.footer_xy = (self.W // 2 - total_w // 2, self.footer_center_y - content_h // 2)
+
+    def _draw_footer(self, frame, opacity=1.0):
+        """Composite the footer in the lower black band using premultiplied RGBA."""
+        if self.footer is None or opacity <= 0.002:
+            return frame
+        x, y = self.footer_xy
+        sprite = self.footer if opacity >= 0.999 else self.footer * float(opacity)
+        sh, sw = sprite.shape[:2]
+        x0, y0 = max(x, 0), max(y, 0)
+        x1, y1 = min(x + sw, self.W), min(y + sh, self.H)
+        if x1 <= x0 or y1 <= y0:
+            return frame
+        # Raw frames decoded from FFmpeg are backed by a read-only bytes buffer;
+        # a writable copy is required when the animation has ended and only the
+        # persistent footer is being drawn.
+        if not frame.flags.writeable:
+            frame = frame.copy()
+        src = sprite[y0 - y:y1 - y, x0 - x:x1 - x]
+        dst = frame[y0:y1, x0:x1].astype(np.float32) / 255.0
+        dst = dst * (1 - src[..., 3:4]) + src[..., :3]
+        frame[y0:y1, x0:x1] = cv2.convertScaleAbs(dst, alpha=255.0)
+        return frame
 
     # ---- per-frame helpers -------------------------------------------------
     def env(self, t):
@@ -309,7 +403,7 @@ class IntroOverlay:
     def apply(self, frame, t):
         tl = self.tl
         if t >= tl.duration:
-            return frame
+            return self._draw_footer(frame, 1.0)
         if t < tl.silent_duration:
             # The logo is drawn over genuinely black frames: no early footage
             # peeks through and the paired audio clip is silent in this phase.
@@ -350,4 +444,9 @@ class IntroOverlay:
                 d = out[ys0:ys1, xs0:xs1].astype(np.float32) * (1 / 255.0)
                 d = d * (1 - s_[..., 3:4]) + s_[..., :3]
                 out[ys0:ys1, xs0:xs1] = cv2.convertScaleAbs(d, alpha=255.0)
-        return out
+
+        # Fade the footer in at the logo-to-lyric handoff, then keep it for the
+        # full Reel. It intentionally stays absent during the silent black logo draw.
+        footer_fade_start = max(tl.silent_duration, tl.duration - 0.65)
+        footer_alpha = float(smooth(seg(t, footer_fade_start, tl.duration)))
+        return self._draw_footer(out, footer_alpha)

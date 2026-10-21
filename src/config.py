@@ -136,7 +136,7 @@ class Config:
             raise ValueError('runtime.require_cuda and runtime.allow_cpu_fallback are contradictory; disable CPU fallback when CUDA is mandatory')
         # Reel intro values are optional for backwards compatibility with older configs.
         # Validate present values so JSON strings such as "false" cannot turn a flag on.
-        for key in ('reel_intro.enabled', 'reel_intro.full_bleed_video'):
+        for key in ('reel_intro.enabled', 'reel_intro.full_bleed_video', 'reel_intro.footer_enabled'):
             value = self.get(key)
             if value is not None and not isinstance(value, bool):
                 raise ValueError(f'{key} must be boolean')
@@ -154,6 +154,15 @@ class Config:
             maximum = 6000 if key == 'reel_intro.silent_duration_ms' else 10000
             if not 0 <= value <= maximum:
                 raise ValueError(f'{key} must be between 0 and {maximum} ms')
+        footer_text = self.get('reel_intro.footer_text', 'Vachika')
+        if not isinstance(footer_text, str) or not footer_text.strip():
+            raise ValueError('reel_intro.footer_text must be a non-empty string')
+        try:
+            footer_center_y = int(self.get('reel_intro.footer_center_y', 1800))
+        except (TypeError, ValueError) as exc:
+            raise ValueError('reel_intro.footer_center_y must be an integer pixel value') from exc
+        if not 0 <= footer_center_y < int(self.get('video_layout.output_height', 1920)):
+            raise ValueError('reel_intro.footer_center_y must be within the output frame height')
         hp_lines = self.get('reel_intro.headphone_lines')
         if hp_lines is not None:
             if isinstance(hp_lines, str):

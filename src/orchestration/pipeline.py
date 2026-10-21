@@ -1469,7 +1469,8 @@ class Pipeline:
             if not intro_assets_dir.is_absolute():
                 intro_assets_dir = self.cfg.root / intro_assets_dir
             intro_asset_names = ("meta.json", "stroke.png", "param_map.npy", "dot.png", "wordmark.png",
-                                 "bar_0.png", "bar_1.png", "bar_2.png", "bar_3.png", "bar_4.png")
+                                 "bar_0.png", "bar_1.png", "bar_2.png", "bar_3.png", "bar_4.png",
+                                 "instagram_icon.png")
             intro_asset_hashes = {
                 name: sha256_file(intro_assets_dir / name)
                 for name in intro_asset_names if (intro_assets_dir / name).is_file()
@@ -1479,7 +1480,7 @@ class Pipeline:
                 "video_id": video.video_id, "offset_ms": offset["candidate_offset_ms"],
                 "word_lrc_sha256": sha256_file(word_lrc), "eightd_sha256": sha256_file(eightd),
                 "config_hash": self.cfg.config_hash,
-                "reel_intro_recipe": "vachika-opening-integration-v2-silent-black-intro",
+                "reel_intro_recipe": "vachika-opening-integration-v3-divider-instagram-footer",
                 "reel_intro_enabled": bool(self.cfg.get("reel_intro.enabled", True)),
                 "reel_intro_assets": intro_asset_hashes,
             })

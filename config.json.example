@@ -71,7 +71,7 @@
     "completed_color": "#FFFFFF",
     "word_fade_in_ms": 80,
     "word_fade_out_ms": 450,
-    "max_chars_single_line": 50,
+    "max_chars_single_line": 30,
     "min_scale_x": 70,
     "download_only_synced": true,
     "search_fallback_enabled": true,
@@ -205,6 +205,9 @@
     ],
     "fade_in_ms": 300,
     "fade_out_ms": 500,
-    "full_bleed_video": false
+    "full_bleed_video": false,
+    "footer_enabled": true,
+    "footer_text": "Vachika",
+    "footer_center_y": 1800
   }
 }

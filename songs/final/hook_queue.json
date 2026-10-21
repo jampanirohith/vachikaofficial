@@ -1,8 +1,8 @@
 {
   "entries": [
     {
-      "completed_at": 1792585435.1016426,
-      "created_at": 1792585300.225071,
+      "completed_at": 1792587433.5014322,
+      "created_at": 1792587358.8599539,
       "duration_ms": 229000,
       "eightd_path": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_8D.mp3",
       "hook_end_ms": 30470,
@@ -19,7 +19,7 @@
       "song_name": "001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra",
       "song_path": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra.mp3",
       "status": "completed",
-      "updated_at": 1792585300.225071,
+      "updated_at": 1792587358.8599539,
       "wordlevel_lrc_path": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_wordlevel.lrc",
       "work_dir": "temp/1_5NSXAVJqe7Zh66PlRhgRvw/source_b0fd89ea4bc36bd9",
       "youtube_offset_method": "mms-lrclib-dual-audio-offset-v3",
@@ -166,6 +166,6 @@
       "ytmusic_audio_video_id": "OliBi_wXTLU"
     }
   ],
-  "updated_at": 1792585490.5288763,
+  "updated_at": 1792587433.5014322,
   "version": 1
 }

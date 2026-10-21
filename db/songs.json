@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-10-21T12:25:38.099933+00:00",
+  "generated_at_utc": "2026-10-21T12:57:22.822792+00:00",
   "authority": "db/vachika.db (songs.json is a generated catalog export; do not edit directly)",
   "song_count": 16,
   "songs": [
@@ -151,25 +151,25 @@
       "spotify": {
         "track_id": "6D7qZFYHS3L81jcAfEz0ob",
         "track_url": "https://open.spotify.com/track/6D7qZFYHS3L81jcAfEz0ob",
-        "album_id": null,
+        "album_id": "53g6M7ke2tnSuVNy1OwgwJ",
         "isrc": "INA090203622"
       },
       "title": "Singarala",
       "artists": "S. P. Balasubrahmanyam, K. J. Yesudas",
       "album": "Dalapathi",
-      "duration_ms": 328438,
+      "duration_ms": 328439,
       "details": {
-        "album_artist": null,
-        "release_date": null,
-        "track_number": null,
-        "disc_number": null,
+        "album_artist": "Ilaiyaraaja",
+        "release_date": "1991-11-01",
+        "track_number": 1,
+        "disc_number": 1,
         "isrc": "INA090203622",
-        "spotify_album_id": null,
-        "spotify_track_uri": null,
-        "explicit": null,
-        "album_type": null,
+        "spotify_album_id": "53g6M7ke2tnSuVNy1OwgwJ",
+        "spotify_track_uri": "spotify:track:6D7qZFYHS3L81jcAfEz0ob",
+        "explicit": 0,
+        "album_type": "album",
         "album_release_precision": null,
-        "album_total_tracks": null,
+        "album_total_tracks": 7,
         "album_label": null
       },
       "playlist": {
@@ -180,41 +180,41 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "completed",
-        "pipeline": "pending",
+        "playlist": "processing",
+        "pipeline": "SOURCE_READY",
         "quality": null,
-        "terminal": true,
-        "terminal_reason": "FINALIZED"
+        "terminal": false,
+        "terminal_reason": "PROCESSING"
       },
       "sources": {
-        "ytmusic_audio_video_id": null,
-        "ytmusic_audio_url": null,
-        "youtube_video_id": null,
-        "youtube_video_url": null,
-        "youtube_offset_ms": null,
-        "youtube_offset_method": null,
-        "youtube_offset_confidence": null,
-        "youtube_offset_status": null,
-        "lyrics_provider": null,
-        "lyrics_status": null
+        "ytmusic_audio_video_id": "_iyRFJya_dY",
+        "ytmusic_audio_url": "https://music.youtube.com/watch?v=_iyRFJya_dY",
+        "youtube_video_id": "uerXXfXCq9c",
+        "youtube_video_url": "https://www.youtube.com/watch?v=uerXXfXCq9c",
+        "youtube_offset_ms": 570,
+        "youtube_offset_method": "mms-lrclib-dual-audio-offset-v3",
+        "youtube_offset_confidence": 0.8625,
+        "youtube_offset_status": "accepted",
+        "lyrics_provider": "lrclib",
+        "lyrics_status": "synced"
       },
       "paths": {
-        "source_audio": null,
-        "source_metadata": null,
-        "synced_lrc": null,
+        "source_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.mp3",
+        "source_metadata": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.info.json",
+        "synced_lrc": "temp/3_6D7qZFYHS3L81jcAfEz0ob/lyrics/source.lrc",
         "wordlevel_lrc": null,
         "song_audio": null,
         "audio_8d": null,
-        "song_json": null,
-        "youtube_reference_audio": null,
-        "reel_video": "reels/generated/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas_reel.mp4",
-        "reel_json": "reels/generated/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas_reel.json"
+        "song_json": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.json",
+        "youtube_reference_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/source_201e41a7cadd53a4/youtube/reference_audio.wav",
+        "reel_video": null,
+        "reel_json": null
       },
-      "record_path": null,
+      "record_path": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.json",
       "hashes": {
-        "source_audio_sha256": null,
-        "synced_lrc_sha256": null,
-        "source_metadata_sha256": null
+        "source_audio_sha256": "201e41a7cadd53a49ab52821b9b9a403f3b7426a437e1a5396774c3a2a4fe91e",
+        "synced_lrc_sha256": "585f1f561645b5e88d180d120721262053f2e13c7a7660d2a86f856310db2604",
+        "source_metadata_sha256": "7a901812c74fa4ee86ff0f958dcbbd77053d6173d30a710317195b4c67c33466"
       }
     },
     {
@@ -364,25 +364,25 @@
       "spotify": {
         "track_id": "5jyHsyGvIxawivb6enu5H3",
         "track_url": "https://open.spotify.com/track/5jyHsyGvIxawivb6enu5H3",
-        "album_id": "50iJYe6QgTwfB7VRzs1yRZ",
+        "album_id": null,
         "isrc": "INUM70501557"
       },
       "title": "Kannanule - Bombay / Soundtrack Version",
       "artists": "K. S. Chithra",
       "album": "Bombay",
-      "duration_ms": 355587,
+      "duration_ms": 355586,
       "details": {
-        "album_artist": "Various Artists",
-        "release_date": "1994-01-01",
-        "track_number": 1,
-        "disc_number": 1,
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
         "isrc": "INUM70501557",
-        "spotify_album_id": "50iJYe6QgTwfB7VRzs1yRZ",
-        "spotify_track_uri": "spotify:track:5jyHsyGvIxawivb6enu5H3",
-        "explicit": 0,
-        "album_type": "compilation",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
         "album_release_precision": null,
-        "album_total_tracks": 6,
+        "album_total_tracks": null,
         "album_label": null
       },
       "playlist": {
@@ -393,11 +393,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "needs_review",
-        "pipeline": "MMS_OFFSET_NEEDS_REVIEW",
-        "quality": "needs_review",
+        "playlist": "pending",
+        "pipeline": "pending",
+        "quality": null,
         "terminal": false,
-        "terminal_reason": "MMS_OFFSET_ANCHOR_NOT_FOUND: MMS could not confidently locate the LRCLIB lyric phrase in reference audio. No energy-envelope fallback is enabled; review the selected source or increase youtube_offset.search_max_seconds."
+        "terminal_reason": null
       },
       "sources": {
         "ytmusic_audio_video_id": null,
@@ -408,26 +408,26 @@
         "youtube_offset_method": null,
         "youtube_offset_confidence": null,
         "youtube_offset_status": null,
-        "lyrics_provider": "lrclib",
-        "lyrics_status": "synced"
+        "lyrics_provider": null,
+        "lyrics_status": null
       },
       "paths": {
-        "source_audio": "temp/6_5jyHsyGvIxawivb6enu5H3/acquisition/master.mp3",
-        "source_metadata": "temp/6_5jyHsyGvIxawivb6enu5H3/acquisition/master.info.json",
-        "synced_lrc": "temp/6_5jyHsyGvIxawivb6enu5H3/lyrics/source.lrc",
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
         "wordlevel_lrc": null,
         "song_audio": null,
         "audio_8d": null,
-        "song_json": "songs/final/006_Kannanule - Bombay _ Soundtrack Version - K. S. Chithra.json",
+        "song_json": null,
         "youtube_reference_audio": null,
         "reel_video": null,
         "reel_json": null
       },
-      "record_path": "songs/final/006_Kannanule - Bombay _ Soundtrack Version - K. S. Chithra.json",
+      "record_path": null,
       "hashes": {
-        "source_audio_sha256": "02c70d5f464ba184bf8fe57587871057f701a650ee33a6e9a9e02305a7c79f6f",
-        "synced_lrc_sha256": "e90be0c76c7bda32a6fd99d81234ad407c80d21bc1e9e2d3a0a93207d382a335",
-        "source_metadata_sha256": "1e2c2dd9e0a86b2992df31aea721692f556a5a1caf8686ea3bed816f12d32ff3"
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
       }
     },
     {
@@ -506,7 +506,7 @@
       "spotify": {
         "track_id": "6BDtczWG8QhZz5RPLpNcgB",
         "track_url": "https://open.spotify.com/track/6BDtczWG8QhZz5RPLpNcgB",
-        "album_id": "50iJYe6QgTwfB7VRzs1yRZ",
+        "album_id": null,
         "isrc": "INUM70501555"
       },
       "title": "Adi Arabi Kadalandam - Bombay / Soundtrack Version",
@@ -514,17 +514,17 @@
       "album": "Bombay",
       "duration_ms": 316533,
       "details": {
-        "album_artist": "Various Artists",
-        "release_date": "1994-01-01",
-        "track_number": 2,
-        "disc_number": 1,
+        "album_artist": null,
+        "release_date": null,
+        "track_number": null,
+        "disc_number": null,
         "isrc": "INUM70501555",
-        "spotify_album_id": "50iJYe6QgTwfB7VRzs1yRZ",
-        "spotify_track_uri": "spotify:track:6BDtczWG8QhZz5RPLpNcgB",
-        "explicit": 0,
-        "album_type": "compilation",
+        "spotify_album_id": null,
+        "spotify_track_uri": null,
+        "explicit": null,
+        "album_type": null,
         "album_release_precision": null,
-        "album_total_tracks": 6,
+        "album_total_tracks": null,
         "album_label": null
       },
       "playlist": {
@@ -535,11 +535,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "processing",
-        "pipeline": "SOURCE_READY",
+        "playlist": "pending",
+        "pipeline": "pending",
         "quality": null,
         "terminal": false,
-        "terminal_reason": "PROCESSING"
+        "terminal_reason": null
       },
       "sources": {
         "ytmusic_audio_video_id": null,
@@ -550,26 +550,26 @@
         "youtube_offset_method": null,
         "youtube_offset_confidence": null,
         "youtube_offset_status": null,
-        "lyrics_provider": "lrclib",
-        "lyrics_status": "synced"
+        "lyrics_provider": null,
+        "lyrics_status": null
       },
       "paths": {
-        "source_audio": "temp/8_6BDtczWG8QhZz5RPLpNcgB/acquisition/master.mp3",
-        "source_metadata": "temp/8_6BDtczWG8QhZz5RPLpNcgB/acquisition/master.info.json",
-        "synced_lrc": "temp/8_6BDtczWG8QhZz5RPLpNcgB/lyrics/source.lrc",
+        "source_audio": null,
+        "source_metadata": null,
+        "synced_lrc": null,
         "wordlevel_lrc": null,
         "song_audio": null,
         "audio_8d": null,
-        "song_json": "songs/final/008_Adi Arabi Kadalandam - Bombay _ Soundtrack Version - Remo Fernandes.json",
+        "song_json": null,
         "youtube_reference_audio": null,
         "reel_video": null,
         "reel_json": null
       },
-      "record_path": "songs/final/008_Adi Arabi Kadalandam - Bombay _ Soundtrack Version - Remo Fernandes.json",
+      "record_path": null,
       "hashes": {
-        "source_audio_sha256": "5e05116ffcd1c3b19b3e4a712ae6b00c0b715a213421b85f4997516a9a677018",
-        "synced_lrc_sha256": "5817ac0d1dc40c694c984312654623f60f418217f4c9acade84aeb81d5a9d828",
-        "source_metadata_sha256": "ba0e190f6617d6706cea1560e72cb71e5c9a484c2c5d1bd443fcfdbb437f30f3"
+        "source_audio_sha256": null,
+        "synced_lrc_sha256": null,
+        "source_metadata_sha256": null
       }
     },
     {

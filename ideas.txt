@@ -1,4 +1,3 @@
 improvments to make:
 1. 8d pipeline
-2. offset calculation
-3. one by one word lyrics on the final video
+3. one by one word lyrics on the final video and for shorter words, or words which timelength is short we should group them

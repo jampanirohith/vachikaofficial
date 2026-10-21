@@ -129,3 +129,31 @@ def test_zero_silent_duration_preserves_immediate_media_start():
     assert timeline.silent_duration == 0.0
     assert timeline.duration == 3.8
     assert timeline.hp_in[0] == 0.0
+
+
+def test_headphone_prompt_divider_and_persistent_instagram_footer():
+    import numpy as np
+    from src.rendercore.reel_intro import H, W, IntroOverlay
+
+    timeline = Timeline.with_silent_lead(silent_duration=2.0, active_duration=3.8)
+    overlay = IntroOverlay(
+        "assets/reel_intro",
+        timeline=timeline,
+        footer_enabled=True,
+        footer_text="Vachika",
+        footer_center_y=1800,
+    )
+
+    # The headphone sprite contains a visible vertical divider before the copy.
+    alpha = overlay.hp[..., 3]
+    divider = alpha[:, overlay.hp_divider_x:overlay.hp_divider_x + 3]
+    assert divider.shape[1] == 3
+    assert int(np.count_nonzero(divider > 0.5)) > 10
+
+    black = np.zeros((H, W, 3), dtype=np.uint8)
+    opening = overlay.apply(black.copy(), 0.5)
+    assert not np.any(opening[1750:1850])  # no footer during the silent black opening
+
+    finished = overlay.apply(black.copy(), timeline.duration + 0.2)
+    assert np.any(finished[1750:1850])  # brand footer survives after the intro animation
+    assert not np.any(finished[:1680])   # footer does not paint over the video panel

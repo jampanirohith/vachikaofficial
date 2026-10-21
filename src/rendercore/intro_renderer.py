@@ -130,6 +130,9 @@ def _render_once(
         beat_t=beat_t,
         timeline=timeline,
         hp_lines=hp_lines,
+        footer_enabled=bool(cfg.get("reel_intro.footer_enabled", True)),
+        footer_text=str(cfg.get("reel_intro.footer_text", "Vachika")),
+        footer_center_y=int(cfg.get("reel_intro.footer_center_y", 1800)),
     )
     decoder = encoder = None
     frames = 0
@@ -155,8 +158,9 @@ def _render_once(
                 break
             frame = np.frombuffer(raw, dtype=np.uint8).reshape(H, W, 3)
             t = silent_frames / FPS + source_frames / FPS
-            if t < timeline.duration:
-                frame = overlay.apply(frame, t)
+            # Keep the intro overlay active after its animation ends so the
+            # lower-band brand footer remains on every final Reel frame.
+            frame = overlay.apply(frame, t)
             encoder.stdin.write(frame.tobytes())
             frames += 1
             source_frames += 1
@@ -229,7 +233,9 @@ def render_intro_video(
     actual leading silence in the matching audio crop built by ``video.reel``.
     """
     source_video, audio_path, out_path, assets_dir = map(Path, (source_video, audio_path, out_path, assets_dir))
-    missing = [name for name in _REQUIRED_ASSETS if not (assets_dir / name).is_file()]
+    footer_enabled = bool(cfg.get("reel_intro.footer_enabled", True))
+    required_assets = _REQUIRED_ASSETS + (("instagram_icon.png",) if footer_enabled else ())
+    missing = [name for name in required_assets if not (assets_dir / name).is_file()]
     if missing:
         raise FileNotFoundError(
             "REEL_INTRO_ASSETS_MISSING: expected generated intro assets in "
