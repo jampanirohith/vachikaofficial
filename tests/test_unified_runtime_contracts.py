@@ -334,10 +334,12 @@ def test_eightd_density_gain_timeline_covers_non_block_aligned_audio():
     assert len(d) == n
 
 
-def test_eightd_mix_never_uses_uncropped_drums():
-    text=Path('src/audio/eightd.py').read_text(encoding='utf-8')
-    assert "drums0=arrays['drums'][:,:n]" in text
-    assert "dmix=0.88*drums0.mean(axis=0)" in text
+def test_eightd_mix_uses_frame_aligned_stereo_stems():
+    text = Path('src/audio/eightd.py').read_text(encoding='utf-8')
+    # v3 aligns every stem once and then spatializes only that canonical frame range.
+    assert 'arrays, n = _fit_stems(arrays)' in text
+    assert 'for role in STEMS:' in text
+    assert 'arrays[role], sr, role, movement[role]' in text
 
 def test_pipeline_songs_db_calls_match_songs_db_api():
     import ast
@@ -357,7 +359,7 @@ def test_eightd_ignores_demucs_metadata_when_hashing_stems():
     calls=[n for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "sha256_file"]
     # Every stem hash must iterate over the canonical four audio-stem paths, not
     # the full Demucs metadata mapping (which contains values such as 'cpu').
-    assert any(isinstance(n.args[0], ast.Name) and n.args[0].id == "v" for n in calls)
+    assert any(isinstance(n.args[0], ast.Name) and n.args[0].id == "path" for n in calls)
     assert "stem_paths.items()" in ast.unparse(fn)
 
 

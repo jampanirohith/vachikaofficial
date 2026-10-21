@@ -12,7 +12,7 @@ from src.providers.acquisition import acquire, normalized_from_acquisition
 from src.audio.source_audio import prepare_source, prepare_full_source
 from src.storage.reel_db import ReelsDB
 from src.storage.song_db import SongsDB
-from src.audio.eightd import render as render_8d
+from src.audio.eightd import ENGINE_VERSION as EIGHTD_ENGINE_VERSION, render as render_8d
 from src.common.hashing import sha256_file, stable_json_hash
 from src.common.paths import display_path
 from src.orchestration.hook import prompt_or_existing
@@ -1253,7 +1253,7 @@ class Pipeline:
                 "demucs_stems": {k: sha256_file(dem[k]) for k in ("vocals", "drums", "bass", "other")},
                 "wordlevel_lrc_sha256": sha256_file(word_lrc),
                 "lrc_sha256": sha256_file(lrc), "alignment_run_id": alignment_id,
-                "config_hash": self.cfg.config_hash, "engine_version": "unified-8d-v2",
+                "config_hash": self.cfg.config_hash, "engine_version": EIGHTD_ENGINE_VERSION,
             })
             eightd_path = work / "audio" / "8d" / "SongName_8D.mp3"
             eightd_manifest = work / "audio" / "8d" / "manifest.json"

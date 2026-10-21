@@ -31,7 +31,7 @@
     "market": "IN",
     "timeout_seconds": 30,
     "max_retries": 4,
-    "redirect_uri": "http://127.0.0.1:8080",
+    "redirect_uri": "http://127.0.0.1:8888/callback",
     "require_user_auth": true
   },
   "ytmusic": {
@@ -49,7 +49,7 @@
       "fragment_retries": 3,
       "socket_timeout_seconds": 60,
       "cookies_from_browser": null,
-      "cookie_file": "cookies.txt"
+      "cookie_file": null
     }
   },
   "lyrics": {
@@ -60,14 +60,14 @@
     "request_delay_seconds": 0.5,
     "font_filename": "Suravaram-Regular.ttf",
     "font_name": "Suravaram",
-    "font_size": 120,
+    "font_size": 80,
     "font_bold": false,
     "outline": 3,
     "shadow": 4,
     "center_x": 540,
     "center_y": 960,
     "base_color": "#FFFFFF",
-    "current_color": "#FFFFFF",
+    "current_color": "#FFD65A",
     "completed_color": "#FFFFFF",
     "word_fade_in_ms": 80,
     "word_fade_out_ms": 450,
@@ -161,7 +161,67 @@
     "bass_pan": 0.0,
     "fade_in_ms": 100,
     "fade_out_ms": 250,
-    "min_mono_compatibility_ratio": 0.2
+    "min_mono_compatibility_ratio": 0.2,
+    "v3": {
+      "head_shadow_cutoff_hz": 3100,
+      "back_cutoff_hz": 4300,
+      "back_gain_reduction": 0.1,
+      "peak_target": 0.89,
+      "movement": {
+        "vocals": {
+          "width": 0.5,
+          "period_s": 18.0,
+          "phase_rad": 0.0,
+          "back_depth": 0.16,
+          "ild_depth": 0.58,
+          "itd_ms": 0.42,
+          "itd_mix": 0.64,
+          "side_gain": 0.88,
+          "head_shadow": 0.36,
+          "room_send": 0.19
+        },
+        "drums": {
+          "width": 0.91,
+          "period_s": 8.4,
+          "phase_rad": 0.85,
+          "back_depth": 0.82,
+          "ild_depth": 0.78,
+          "itd_ms": 0.58,
+          "itd_mix": 0.78,
+          "side_gain": 0.74,
+          "head_shadow": 0.48
+        },
+        "bass": {
+          "width": 0.34,
+          "period_s": 13.5,
+          "phase_rad": 2.15,
+          "back_depth": 0.16,
+          "ild_depth": 0.44,
+          "itd_ms": 0.27,
+          "itd_mix": 0.5,
+          "side_gain": 0.42,
+          "head_shadow": 0.28,
+          "low_anchor_hz": 115.0
+        },
+        "other": {
+          "width": 0.96,
+          "period_s": 11.3,
+          "phase_rad": 2.65,
+          "back_depth": 0.94,
+          "ild_depth": 0.84,
+          "itd_ms": 0.61,
+          "itd_mix": 0.8,
+          "side_gain": 0.72,
+          "head_shadow": 0.5
+        }
+      },
+      "room": {
+        "vocal_rt60_seconds": 0.92,
+        "master_rt60_seconds": 0.72,
+        "master_send": 0.045,
+        "seed": 4807
+      }
+    }
   },
   "hook": {
     "max_duration_ms": null,
@@ -176,7 +236,7 @@
   "video_layout": {
     "output_width": 1080,
     "output_height": 1920,
-    "height_fraction": 0.6
+    "height_fraction": 0.8
   },
   "render": {
     "video_codec": "h264_nvenc",

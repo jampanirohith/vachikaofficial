@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-10-21T12:57:22.822792+00:00",
+  "generated_at_utc": "2026-10-21T16:53:52.457998+00:00",
   "authority": "db/vachika.db (songs.json is a generated catalog export; do not edit directly)",
   "song_count": 16,
   "songs": [
@@ -38,10 +38,10 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "completed",
-        "pipeline": "FINALIZED",
-        "quality": "passed",
-        "terminal": true,
+        "playlist": "pending",
+        "pipeline": "HOOK_PENDING",
+        "quality": null,
+        "terminal": false,
         "terminal_reason": "HOOK_SELECTION_DEFERRED"
       },
       "sources": {
@@ -65,8 +65,8 @@
         "audio_8d": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_8D.mp3",
         "song_json": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra.json",
         "youtube_reference_audio": "temp/1_5NSXAVJqe7Zh66PlRhgRvw/source_b0fd89ea4bc36bd9/youtube/reference_audio.wav",
-        "reel_video": "reels/generated/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_reel.mp4",
-        "reel_json": "reels/generated/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra_reel.json"
+        "reel_video": null,
+        "reel_json": null
       },
       "record_path": "songs/final/001_Chinuku Chinuku Andelatho - From _Subhalagnam_ - S.V.Krishna Reddy, S. P. Balasubrahmanyam, K. S. Chithra.json",
       "hashes": {
@@ -109,11 +109,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "processing",
-        "pipeline": "SOURCE_READY",
+        "playlist": "pending",
+        "pipeline": "HOOK_PENDING",
         "quality": null,
         "terminal": false,
-        "terminal_reason": "PROCESSING"
+        "terminal_reason": "HOOK_SELECTION_DEFERRED"
       },
       "sources": {
         "ytmusic_audio_video_id": "gFIASqhTBPs",
@@ -130,10 +130,10 @@
       "paths": {
         "source_audio": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/acquisition/master.mp3",
         "source_metadata": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/acquisition/master.info.json",
-        "synced_lrc": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/lyrics/source.lrc",
-        "wordlevel_lrc": null,
-        "song_audio": null,
-        "audio_8d": null,
+        "synced_lrc": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.lrc",
+        "wordlevel_lrc": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_wordlevel.lrc",
+        "song_audio": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.mp3",
+        "audio_8d": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra_8D.mp3",
         "song_json": "songs/final/002_Abbanee - S. P. Balasubrahmanyam, K. S. Chithra.json",
         "youtube_reference_audio": "temp/2_1fJDaMZnbiXG4e8MsFhSDp/source_5749716748029148/youtube/reference_audio.wav",
         "reel_video": null,
@@ -180,11 +180,11 @@
         "added_at": "2026-10-07T04:38:59Z"
       },
       "status": {
-        "playlist": "processing",
-        "pipeline": "SOURCE_READY",
+        "playlist": "pending",
+        "pipeline": "HOOK_PENDING",
         "quality": null,
         "terminal": false,
-        "terminal_reason": "PROCESSING"
+        "terminal_reason": "HOOK_SELECTION_DEFERRED"
       },
       "sources": {
         "ytmusic_audio_video_id": "_iyRFJya_dY",
@@ -201,10 +201,10 @@
       "paths": {
         "source_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.mp3",
         "source_metadata": "temp/3_6D7qZFYHS3L81jcAfEz0ob/acquisition/master.info.json",
-        "synced_lrc": "temp/3_6D7qZFYHS3L81jcAfEz0ob/lyrics/source.lrc",
-        "wordlevel_lrc": null,
-        "song_audio": null,
-        "audio_8d": null,
+        "synced_lrc": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.lrc",
+        "wordlevel_lrc": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas_wordlevel.lrc",
+        "song_audio": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.mp3",
+        "audio_8d": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas_8D.mp3",
         "song_json": "songs/final/003_Singarala - S. P. Balasubrahmanyam, K. J. Yesudas.json",
         "youtube_reference_audio": "temp/3_6D7qZFYHS3L81jcAfEz0ob/source_201e41a7cadd53a4/youtube/reference_audio.wav",
         "reel_video": null,
