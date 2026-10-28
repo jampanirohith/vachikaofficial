@@ -258,9 +258,9 @@ class IntroOverlay:
         self.footer = to_pm(arr[..., [2, 1, 0]], arr[..., 3])
         self.footer_xy = (self.W // 2 - self.footer.shape[1] // 2, self.footer_center_y - self.footer.shape[0] // 2)
 
-    def _apply_footer(self, frame):
-        """Composite the brand lockup onto the black band after the logo animation."""
-        if not self.footer_enabled:
+    def _apply_footer(self, frame, opacity=1.0):
+        """Composite the brand lockup onto the lower black band with a soft fade."""
+        if not self.footer_enabled or float(opacity) <= 0.002:
             return frame
         # Decoded ffmpeg frames may be read-only views backed by bytes. Copy before drawing.
         out = frame.copy()
@@ -270,7 +270,7 @@ class IntroOverlay:
         x1, y1 = min(x + sprite.shape[1], self.W), min(y + sprite.shape[0], self.H)
         if x1 <= x0 or y1 <= y0:
             return out
-        src = sprite[y0 - y:y1 - y, x0 - x:x1 - x]
+        src = sprite[y0 - y:y1 - y, x0 - x:x1 - x] * float(np.clip(opacity, 0.0, 1.0))
         alpha = src[..., 3:4]
         dst = out[y0:y1, x0:x1].astype(np.float32) / 255.0
         dst = dst * (1.0 - alpha) + src[..., :3]
@@ -308,8 +308,11 @@ class IntroOverlay:
             pop = float(ease_out_back(seg(t, t0, t0 + tl.bar_pop)))
             if pop <= 0.01:
                 continue
-            react = 0.62 + 0.55 * self.env(t - 0.035 * k)
-            blend = float(smooth(seg(t, tl.bars_start + 0.3, tl.bars_start + 0.5)))   # hand over to the song
+            # This is the silent logo scene: keep the bars steady while they
+            # pop in. The song has not started yet, so do not pretend they are
+            # reacting to its RMS envelope during the black page.
+            react = 0.92
+            blend = 0.0
             h = round(b["a"].shape[0] * pop * (1 + blend * (react - 1)))
             if h < 2:
                 continue
@@ -366,49 +369,67 @@ class IntroOverlay:
             layer *= float(tl.logo_alpha(t))
         return layer
 
-    # ---- public --------------------------------------------------------------
-    def apply(self, frame, t):
-        tl = self.tl
-        if t >= tl.duration:
-            return self._apply_footer(frame)
-        if t < tl.silent_duration:
-            # The logo is drawn over genuinely black frames: no early footage
-            # peeks through and the paired audio clip is silent in this phase.
-            out = np.zeros_like(frame)
-        else:
-            m = float(tl.blur_mix(t))
-            if m > 0.001:
-                small = cv2.resize(frame, self.small, interpolation=cv2.INTER_AREA)
-                small = cv2.GaussianBlur(small, (0, 0), 5)
-                k = float(tl.breathe(t))
-                if k > 1.0005:
-                    M = cv2.getRotationMatrix2D((self.small[0] / 2, self.small[1] / 2), 0, k)
-                    small = cv2.warpAffine(small, M, self.small, borderMode=cv2.BORDER_REFLECT)
-                small = (small.astype(np.float32) * self.vig_small * tl.blur_dim)
-                blurred = cv2.resize(np.clip(small, 0, 255).astype(np.uint8), (self.W, self.H),
-                                     interpolation=cv2.INTER_LINEAR)
-                out = cv2.addWeighted(frame, 1 - m, blurred, m, 0)
-            else:
-                out = frame.copy()
-
+    # ---- compositing helpers --------------------------------------------------
+    def _composite_logo(self, out, t):
+        """Composite the scaled logo lockup onto a black frame only."""
         x0, y0, x1, y1 = self.roi
         roi = out[y0:y1, x0:x1].astype(np.float32) * (1 / 255.0)
-        roi *= (1 - 0.35 * float(tl.logo_presence(t)) * self.blob)[..., None]
+        roi *= (1 - 0.25 * float(self.tl.logo_presence(t)) * self.blob)[..., None]
         layer = self._logo_layer(t)
         roi *= (1 - layer[..., 3:4])
         roi += layer[..., :3]
         out[y0:y1, x0:x1] = cv2.convertScaleAbs(roi, alpha=255.0)
-
-        hp_a = float(tl.hp_alpha(t))
-        if hp_a > 0.002:
-            hx, hy = self.hp_xy
-            hy = round(hy + 14 * (1 - float(smooth(seg(t, *tl.hp_in)))))
-            sp = self.hp
-            ys0, ys1 = max(hy, 0), min(hy + sp.shape[0], self.H)
-            xs0, xs1 = max(hx, 0), min(hx + sp.shape[1], self.W)
-            if ys1 > ys0 and xs1 > xs0:
-                s_ = sp[ys0 - hy:ys1 - hy, xs0 - hx:xs1 - hx] * hp_a
-                d = out[ys0:ys1, xs0:xs1].astype(np.float32) * (1 / 255.0)
-                d = d * (1 - s_[..., 3:4]) + s_[..., :3]
-                out[ys0:ys1, xs0:xs1] = cv2.convertScaleAbs(d, alpha=255.0)
         return out
+
+    def _composite_headphone_prompt(self, out, t):
+        hp_a = float(self.tl.hp_alpha(t))
+        if hp_a <= 0.002:
+            return out
+        hx, hy = self.hp_xy
+        hy = round(hy + 14 * (1 - float(smooth(seg(t, *self.tl.hp_in)))))
+        sp = self.hp
+        ys0, ys1 = max(hy, 0), min(hy + sp.shape[0], self.H)
+        xs0, xs1 = max(hx, 0), min(hx + sp.shape[1], self.W)
+        if ys1 <= ys0 or xs1 <= xs0:
+            return out
+        s_ = sp[ys0 - hy:ys1 - hy, xs0 - hx:xs1 - hx] * hp_a
+        d = out[ys0:ys1, xs0:xs1].astype(np.float32) * (1 / 255.0)
+        d = d * (1 - s_[..., 3:4]) + s_[..., :3]
+        out[ys0:ys1, xs0:xs1] = cv2.convertScaleAbs(d, alpha=255.0)
+        return out
+
+    # ---- public --------------------------------------------------------------
+    def apply(self, frame, t):
+        tl = self.tl
+        if t >= tl.duration:
+            footer_alpha = float(smooth(seg(t, tl.duration, tl.duration + 0.38)))
+            return self._apply_footer(frame, footer_alpha)
+
+        if t < tl.silent_duration:
+            # Scene one: nothing but the correctly-sized logo on pure black.
+            # The footer and headphone warning are intentionally absent here.
+            out = np.zeros_like(frame)
+            return self._composite_logo(out, t)
+
+        # Scene two: song and source video start together. Keep the source
+        # blurred/dimmed behind the headphone prompt, then reveal it fully at
+        # the lyric handoff. The logo is deliberately not drawn in this scene.
+        m = float(tl.blur_mix(t))
+        if m > 0.001:
+            small = cv2.resize(frame, self.small, interpolation=cv2.INTER_AREA)
+            small = cv2.GaussianBlur(small, (0, 0), 5)
+            k = float(tl.breathe(t))
+            if k > 1.0005:
+                M = cv2.getRotationMatrix2D((self.small[0] / 2, self.small[1] / 2), 0, k)
+                small = cv2.warpAffine(small, M, self.small, borderMode=cv2.BORDER_REFLECT)
+            small = (small.astype(np.float32) * self.vig_small * tl.blur_dim)
+            blurred = cv2.resize(np.clip(small, 0, 255).astype(np.uint8), (self.W, self.H),
+                                 interpolation=cv2.INTER_LINEAR)
+            out = cv2.addWeighted(frame, 1 - m, blurred, m, 0)
+        else:
+            out = frame.copy()
+
+        scene_alpha = float(tl.video_scene_alpha(t))
+        if scene_alpha < 0.999:
+            out = np.clip(out.astype(np.float32) * scene_alpha, 0, 255).astype(np.uint8)
+        return self._composite_headphone_prompt(out, t)

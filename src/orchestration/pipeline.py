@@ -1480,7 +1480,7 @@ class Pipeline:
                 "video_id": video.video_id, "offset_ms": offset["candidate_offset_ms"],
                 "word_lrc_sha256": sha256_file(word_lrc), "eightd_sha256": sha256_file(eightd),
                 "config_hash": self.cfg.config_hash,
-                "reel_intro_recipe": "vachika-opening-integration-v3-divider-instagram-footer",
+                "reel_intro_recipe": "vachika-opening-two-scene-v4-separated-logo-warning-resize-footer",
                 "reel_intro_enabled": bool(self.cfg.get("reel_intro.enabled", True)),
                 "reel_intro_assets": intro_asset_hashes,
             })

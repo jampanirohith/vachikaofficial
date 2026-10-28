@@ -203,7 +203,7 @@ def build_reel(cfg, work, song, hook_start, hook_end, yt_video_source, yt_offset
         reel_start_ms, intro_effective_ms, first_vocal_ms, hook_start, yt_offset, intro_info,
     )
     base_reel_duration_ms=hook_end-reel_start_ms
-    silent_opening_ms=(max(0,min(6000,int(cfg.get('reel_intro.silent_duration_ms',2000) or 0)))
+    silent_opening_ms=(max(0,min(6000,int(cfg.get('reel_intro.silent_duration_ms',2400) or 0)))
                        if intro_effective_ms else 0)
     reel_duration_ms=base_reel_duration_ms+silent_opening_ms
     reel_start_s=int(reel_start_ms)
@@ -267,6 +267,9 @@ def build_reel(cfg, work, song, hook_start, hook_end, yt_video_source, yt_offset
             "fade_in_ms":int(cfg.get('reel_intro.fade_in_ms',300)),
             "fade_out_ms":int(cfg.get('reel_intro.fade_out_ms',500)),
             "silent_opening_ms":silent_opening_ms,
+            "logo_scene_duration_ms":silent_opening_ms,
+            "warning_scene_duration_ms":intro_effective_ms,
+            "scene_sequence":["black_logo_only", "blurred_video_headphone_warning", "sharp_video_with_lyrics"],
             "footer_enabled":bool(cfg.get('reel_intro.footer_enabled', True)),
             "footer_text":str(cfg.get('reel_intro.footer_text', 'Vachika')),
             "footer_center_y":int(cfg.get('reel_intro.footer_center_y', 1800)),

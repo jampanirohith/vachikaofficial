@@ -109,18 +109,68 @@ def test_shortened_timeline_scales_all_time_markers():
 
 
 def test_silent_black_intro_and_active_video_phase_are_separate():
-    timeline = Timeline.with_silent_lead(silent_duration=2.0, active_duration=3.8)
+    timeline = Timeline.with_silent_lead(silent_duration=2.4, active_duration=3.8)
 
-    assert timeline.silent_duration == 2.0
-    assert timeline.duration == 5.8
-    # The prompt/background start with audio, while logo evaporation and video
-    # reveal finish together at the first lyric handoff.
-    assert timeline.hp_in[0] == 2.0
+    assert timeline.silent_duration == 2.4
+    assert abs(timeline.duration - 6.2) < 1e-9
+    # The complete logo animates and fades out on black before the song/video
+    # scene begins. The warning belongs only to scene two.
+    assert timeline.wordmark[1] < timeline.logo_evaporate[0]
+    assert timeline.logo_evaporate[1] == timeline.silent_duration
+    assert timeline.hp_in[0] == timeline.silent_duration
+    assert timeline.video_fade_in[0] == timeline.silent_duration
+    assert timeline.hp_alpha(timeline.silent_duration - 0.01) == 0.0
+    assert timeline.hp_alpha(timeline.silent_duration + 0.9) > 0.9
     assert timeline.blur_hold_until > timeline.silent_duration
     assert timeline.blur_lift_end == timeline.duration
-    assert timeline.logo_evaporate[1] == timeline.duration
     assert timeline.hp_out[1] == timeline.duration
-    assert timeline.wordmark[1] < timeline.duration
+
+
+def test_logo_and_headphone_warning_render_on_separate_scenes():
+    import numpy as np
+    from src.rendercore.reel_intro.overlay import IntroOverlay
+    from src.rendercore.reel_intro.timeline import H, W
+
+    timeline = Timeline.with_silent_lead(silent_duration=2.4, active_duration=3.8)
+    overlay = IntroOverlay(
+        "assets/reel_intro", env=np.zeros(200, dtype=np.float32), beat_t=0.7,
+        timeline=timeline, footer_enabled=False,
+    )
+    black = np.zeros((H, W, 3), dtype=np.uint8)
+
+    # Scene one contains only the animated logo. There is no warning yet.
+    logo_scene = overlay.apply(black, 1.45)
+    assert int(logo_scene.sum()) > 0
+    assert timeline.hp_alpha(1.45) == 0.0
+
+    # Scene two contains only the warning on black when given a black source;
+    # the logo must not persist into it.
+    warning_scene = overlay.apply(black, timeline.silent_duration + 0.9)
+    assert not np.any(warning_scene[:1050])
+    assert int(warning_scene[1180:1420].sum()) > 0
+
+
+def test_footer_fades_in_only_after_the_two_intro_scenes():
+    import numpy as np
+    from src.rendercore.reel_intro.overlay import IntroOverlay
+    from src.rendercore.reel_intro.timeline import H, W
+
+    timeline = Timeline.with_silent_lead(silent_duration=2.4, active_duration=3.8)
+    overlay = IntroOverlay(
+        "assets/reel_intro", env=np.zeros(200, dtype=np.float32), beat_t=0.7,
+        timeline=timeline, footer_enabled=True,
+    )
+    black = np.zeros((H, W, 3), dtype=np.uint8)
+
+    # The footer does not compete with either opening scene; it fades into the
+    # lower black band once the video/lyrics have reached the handoff.
+    last_warning = overlay.apply(black, timeline.duration - 0.01)
+    first_handoff = overlay.apply(black, timeline.duration)
+    halfway = overlay.apply(black, timeline.duration + 0.19)
+    full = overlay.apply(black, timeline.duration + 0.8)
+    assert int(last_warning.sum()) == 0
+    assert int(first_handoff.sum()) == 0
+    assert 0 < int(halfway.sum()) < int(full.sum())
 
 
 def test_zero_silent_duration_preserves_immediate_media_start():
@@ -129,6 +179,7 @@ def test_zero_silent_duration_preserves_immediate_media_start():
     assert timeline.silent_duration == 0.0
     assert timeline.duration == 3.8
     assert timeline.hp_in[0] == 0.0
+    assert timeline.video_fade_in[0] == 0.0
 
 
 def test_headphone_prompt_divider_and_persistent_instagram_footer():

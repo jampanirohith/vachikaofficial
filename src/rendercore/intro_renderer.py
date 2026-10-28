@@ -196,6 +196,9 @@ def _render_once(
             "video_codec": info.get("video_codec"),
             "beat_t_seconds": round(float(beat_t), 4),
             "timeline_duration_ms": int(round(timeline.duration * 1000)),
+            "scene_layout": "black_logo_only_then_blurred_video_headphone_prompt_then_sharp_video",
+            "logo_scene_duration_ms": int(round(timeline.silent_duration * 1000)),
+            "warning_scene_duration_ms": int(round(max(0.0, timeline.duration - timeline.silent_duration) * 1000)),
         }
     except Exception:
         if decoder is not None and decoder.poll() is None:
@@ -221,7 +224,7 @@ def render_intro_video(
     cfg: Any,
     *,
     duration_s: float = 3.2,
-    silent_duration_s: float = 2.0,
+    silent_duration_s: float = 2.4,
     hp_lines=("USE HEADPHONES", "FOR BETTER EXPERIENCE"),
     logger=None,
 ) -> dict[str, Any]:

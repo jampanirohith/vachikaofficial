@@ -258,7 +258,7 @@
     "enabled": true,
     "assets_dir": "assets/reel_intro",
     "duration_ms": 3800,
-    "silent_duration_ms": 2000,
+    "silent_duration_ms": 2400,
     "headphone_lines": [
       "USE HEADPHONES",
       "FOR BETTER EXPERIENCE"

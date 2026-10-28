@@ -1,9 +1,11 @@
 """All timings, easing curves and layout constants for the Vachika opening.
 
-Every number the animation uses lives here, so tuning means editing this file
-and nothing else. Times are seconds from the first frame of the Reel.
+The intro is intentionally split into two visual scenes on one output timeline:
+1. a black, silent logo reveal; and
+2. a blurred video/audio scene with the headphone prompt, which clears at the
+   first lyric.  Times are seconds from the first frame of the final Reel.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -52,41 +54,41 @@ def pen_ease(x):
 @dataclass
 class Timeline:
     duration: float = 3.2
-    # A silent, black section before the song and background video begin.
-    # All animation timestamps remain on the final output timeline.
+    # A silent, black page before the song and background video begin.
     silent_duration: float = 0.0
 
-    # audio
-    audio_fade_in: float = 0.3            # keep <= 0.3 s, longer eats the hook
-    pan_depth_start: float = 0.30         # share of full width at t = 0
-    pan_depth_full_at: float = 3.0        # reaches 1.0 here
+    # audio and overall atmosphere
+    audio_fade_in: float = 0.3
+    pan_depth_start: float = 0.30
+    pan_depth_full_at: float = 3.0
 
-    # backdrop (blurred copy of the live video, faded out to reveal it)
+    # Active scene: blurred source eases into the sharp video as lyrics begin.
     blur_hold_until: float = 1.8
     blur_lift_end: float = 2.8
-    blur_dim: float = 0.50                # brightness of the blurred copy
-    breathe_scale: float = 0.04           # 1.00 -> 1.04 over the blur phase
-    vignette: float = 0.35
+    blur_dim: float = 0.50
+    breathe_scale: float = 0.025
+    vignette: float = 0.30
+    video_fade_in: tuple = (0.0, 0.38)
 
-    # logo
-    dot_in: tuple = (0.00, 0.30)
-    stroke: tuple = (0.20, 0.80)
-    bars_start: float = 0.45              # first bar; others follow 40 ms apart
+    # Logo timings are absolute from output start, and must end in the silent page.
+    dot_in: tuple = (0.05, 0.36)
+    stroke: tuple = (0.16, 1.35)
+    bars_start: float = 0.70
     bar_stagger: float = 0.04
-    bar_pop: float = 0.22
-    wordmark: tuple = (0.80, 1.20)
-    logo_evaporate: tuple = (2.20, 2.90)
+    bar_pop: float = 0.24
+    wordmark: tuple = (1.15, 1.88)
+    logo_evaporate: tuple = (2.05, 2.40)
 
-    # headphone line
+    # Headphone prompt belongs only to the active video/audio scene.
     hp_in: tuple = (1.20, 1.80)
     hp_out: tuple = (2.40, 3.00)
 
-    # first lyric (centred on the first sung syllable)
-    first_vocal: float = 3.0              # segment time of the first sung line
+    # First lyric handoff.
+    first_vocal: float = 3.0
     first_lyric_fade: float = 0.6
 
     def for_vocal(self, first_vocal: float) -> "Timeline":
-        """Copy adjusted when the first vocal comes earlier than planned."""
+        """Return a copy adjusted when the first vocal comes earlier than planned."""
         tl = Timeline(**{**self.__dict__})
         tl.first_vocal = first_vocal
         if first_vocal < 3.0:
@@ -95,11 +97,7 @@ class Timeline:
         return tl
 
     def scaled_to(self, duration: float) -> "Timeline":
-        """Uniformly scale the visual opening when the song starts too early.
-
-        The animation still completes at the first lyric instead of letting the
-        logo overlap an already-started lyric indefinitely.
-        """
+        """Scale a standalone timeline uniformly; used by tests/tools outside Reel build."""
         duration = max(0.0, float(duration))
         factor = duration / max(self.duration, 1e-9)
         tl = Timeline(**{**self.__dict__})
@@ -108,45 +106,61 @@ class Timeline:
                      "bar_stagger", "bar_pop", "pan_depth_full_at",
                      "first_vocal", "first_lyric_fade"):
             setattr(tl, name, getattr(self, name) * factor)
-        for name in ("dot_in", "stroke", "wordmark", "logo_evaporate", "hp_in", "hp_out"):
+        for name in ("dot_in", "stroke", "wordmark", "logo_evaporate", "hp_in", "hp_out", "video_fade_in"):
             setattr(tl, name, tuple(float(v) * factor for v in getattr(self, name)))
         return tl
 
     @classmethod
     def with_silent_lead(cls, silent_duration: float, active_duration: float) -> "Timeline":
-        """Build the complete opening with a black/silent logo reveal first.
+        """Build a two-scene opening with independent logo and music/video phases.
 
-        ``active_duration`` is the song/video lead-in before the first lyric.
-        ``silent_duration`` is added in front of that media lead-in. Logo ink
-        animation is stretched across the complete opening, while the blurred
-        video and headphone prompt start exactly when the song starts.
+        ``silent_duration`` is the black-only logo page. The complete icon and
+        wordmark reveal, hold briefly, and fade back to black before the source
+        video/audio start. ``active_duration`` is the actual song/video lead-in
+        ending on the first lyric; only this scene contains the blurred footage
+        and headphone warning. The final video is sharp at the lyric handoff.
         """
         silent = max(0.0, float(silent_duration))
         active = max(0.0, float(active_duration))
         total = silent + active
-        tl = cls().scaled_to(total)
+        tl = cls()
         tl.duration = total
         tl.silent_duration = silent
+        tl.first_vocal = total
+        tl.first_lyric_fade = min(0.6, max(0.2, active * 0.15))
 
-        # Hold a strongly blurred live-video backdrop through most of the
-        # active phase, then reveal the normal picture at the lyric handoff.
+        # Keep logo animation fully on the black page. Proportional timings keep
+        # short custom silent durations safe; the default 2.4 s page leaves a
+        # calm hold before the mark softly fades away.
+        if silent > 0:
+            tl.dot_in = (silent * 0.025, silent * 0.16)
+            tl.stroke = (silent * 0.06, silent * 0.56)
+            tl.bars_start = silent * 0.28
+            tl.bar_stagger = min(0.045, silent * 0.018)
+            tl.bar_pop = min(0.25, silent * 0.10)
+            tl.wordmark = (silent * 0.48, silent * 0.78)
+            tl.logo_evaporate = (silent * 0.86, silent)
+        else:
+            # With no black page, skip the logo scene rather than placing it on
+            # top of the video/warning scene.
+            tl.dot_in = (0.0, 0.0)
+            tl.stroke = (0.0, 0.0)
+            tl.bars_start = 0.0
+            tl.wordmark = (0.0, 0.0)
+            tl.logo_evaporate = (0.0, 0.0)
+
+        # Active scene enters from black and remains strongly blurred while the
+        # warning is legible. The original video becomes sharp near the lyric.
+        tl.video_fade_in = (silent, min(total, silent + min(0.45, max(0.24, active * 0.12))))
         tl.blur_hold_until = silent + active * 0.58
         tl.blur_lift_end = total
 
-        # The logo finishes its draw-on before/around the audio handoff, then
-        # remains legible over the blurred picture before dissolving at the
-        # first lyric. Keep these absolute times tied to the final timeline.
-        logo_fade = min(0.9, max(0.35, active * 0.28))
-        tl.logo_evaporate = (max(silent, total - logo_fade), total)
-
-        # Show the headphone mark and copy together from the exact moment the
-        # music and blurred video begin, then clear them just before lyrics.
-        hp_in_end = min(total, silent + min(0.6, max(0.25, active * 0.20)))
-        hp_fade = min(0.7, max(0.3, active * 0.22))
+        hp_fade_in = min(0.85, max(0.30, active * 0.22))
+        hp_fade_out = min(0.80, max(0.28, active * 0.20))
+        hp_in_end = min(total, silent + hp_fade_in)
+        hp_out_start = max(hp_in_end, total - hp_fade_out)
         tl.hp_in = (silent, hp_in_end)
-        tl.hp_out = (max(hp_in_end, total - hp_fade), total)
-        tl.first_vocal = total
-        tl.first_lyric_fade = min(0.6, max(0.2, active * 0.15))
+        tl.hp_out = (hp_out_start, total)
         return tl
 
     @property
@@ -161,15 +175,19 @@ class Timeline:
         """1 = fully blurred/dimmed copy on top, 0 = sharp video."""
         return 1 - ease_in_out(seg(t, self.blur_hold_until, self.blur_lift_end))
 
+    def video_scene_alpha(self, t):
+        """Fade the active video from black in sync with the audio fade-in."""
+        return ease_in_out(seg(t, *self.video_fade_in))
+
     def breathe(self, t):
-        return 1.0 + self.breathe_scale * smooth(seg(t, 0, self.blur_lift_end))
+        return 1.0 + self.breathe_scale * smooth(seg(t, self.silent_duration, self.blur_lift_end))
 
     def logo_alpha(self, t):
         return 1 - ease_in_out(seg(t, *self.logo_evaporate))
 
     def logo_presence(self, t):
         """How strongly the dark pad behind the logo should show."""
-        return smooth(seg(t, 0.10, 0.70)) * self.logo_alpha(t)
+        return smooth(seg(t, self.silent_duration * 0.04, self.silent_duration * 0.24)) * self.logo_alpha(t)
 
     def evaporate(self, t):
         return ease_in_out(seg(t, *self.logo_evaporate))
@@ -188,13 +206,15 @@ class Timeline:
 @dataclass
 class Layout:
     """Where things sit on the 1080 x 1920 canvas."""
-    icon_height: int = 640                 # px, on canvas
-    icon_center_y: int = 790
-    wordmark_width: int = 600
-    wordmark_top: int = 1150
-    hp_center_y: int = 1450                # above the bottom UI band (y > 1536)
-    hp_font_px: int = 46
-    glow_sigma: float = 10.0
-    glow_gain: float = 0.35
-    dot_glow_radius: int = 120
-    dot_glow_gain: float = 0.55
+    # Slightly smaller grouped lockup, centered as one unit with the wordmark
+    # directly beneath the icon rather than leaving the logo too high on screen.
+    icon_height: int = 540
+    icon_center_y: int = 820
+    wordmark_width: int = 500
+    wordmark_top: int = 1120
+    hp_center_y: int = 1280
+    hp_font_px: int = 44
+    glow_sigma: float = 8.0
+    glow_gain: float = 0.27
+    dot_glow_radius: int = 105
+    dot_glow_gain: float = 0.46
